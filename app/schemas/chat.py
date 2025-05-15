@@ -4,9 +4,9 @@ from typing import Optional
 class ChatRequest(BaseModel):
     mensaje: str
     usuario_id: str 
-    proyecto: str
+    proyecto: Optional[str] = None
 
 class ChatResponse(BaseModel):
     respuesta: str
     usuario_id: str
-    proyecto: str
+    proyecto: Optional[str] = None

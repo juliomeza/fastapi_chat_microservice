@@ -20,34 +20,59 @@ async def query_database(db: AsyncSession, query_type: str, message: str, projec
             
             # Si se especifica un estado, hacemos consulta por ese estado
             if order_status_id is not None:
-                stmt = text("""
-                    SELECT COUNT(*) FROM data_testdata
-                    WHERE order_status_id = :order_status_id AND lookup_code = :lookup_code
-                """)
-                result = await db.execute(stmt, {"order_status_id": order_status_id, "lookup_code": project_project_name})
+                if project_project_name:
+                    stmt = text("""
+                        SELECT COUNT(*) FROM data_testdata
+                        WHERE order_status_id = :order_status_id AND lookup_code = :lookup_code
+                    """)
+                    result = await db.execute(stmt, {"order_status_id": order_status_id, "lookup_code": project_project_name})
+                else:
+                    stmt = text("""
+                        SELECT COUNT(*) FROM data_testdata
+                        WHERE order_status_id = :order_status_id
+                    """)
+                    result = await db.execute(stmt, {"order_status_id": order_status_id})
                 count = result.scalar_one_or_none()
                 
                 if count is not None:
                     status_name = {1: "pendiente", 2: "completada", 3: "cancelada"}.get(order_status_id, f"con estado ID {order_status_id}")
-                    return f"Hay {count} órdenes {status_name}s para '{project_project_name}' en 'data_testdata'."
+                    if project_project_name:
+                        return f"Hay {count} órdenes {status_name}s para '{project_project_name}' en 'data_testdata'."
+                    else:
+                        return f"Hay {count} órdenes {status_name}s en 'data_testdata'."
                 else:
-                    return f"No se pudieron contar las órdenes para '{project_project_name}' en 'data_testdata'."
+                    if project_project_name:
+                        return f"No se pudieron contar las órdenes para '{project_project_name}' en 'data_testdata'."
+                    else:
+                        return f"No se pudieron contar las órdenes en 'data_testdata'."
             
             # Si no se especifica estado, consultamos un resumen de todos los estados
             else:
-                stmt = text("""
-                    SELECT order_status_id, COUNT(*) as count 
-                    FROM data_testdata
-                    WHERE lookup_code = :lookup_code
-                    GROUP BY order_status_id
-                    ORDER BY order_status_id
-                """)
-                result = await db.execute(stmt, {"lookup_code": project_project_name})
+                if project_project_name:
+                    stmt = text("""
+                        SELECT order_status_id, COUNT(*) as count 
+                        FROM data_testdata
+                        WHERE lookup_code = :lookup_code
+                        GROUP BY order_status_id
+                        ORDER BY order_status_id
+                    """)
+                    result = await db.execute(stmt, {"lookup_code": project_project_name})
+                else:
+                    stmt = text("""
+                        SELECT order_status_id, COUNT(*) as count 
+                        FROM data_testdata
+                        GROUP BY order_status_id
+                        ORDER BY order_status_id
+                    """)
+                    result = await db.execute(stmt)
                 status_counts = result.fetchall()
                 
                 if status_counts:
                     status_names = {1: "pendiente", 2: "completada", 3: "cancelada"}
-                    response_lines = [f"Resumen de órdenes para '{project_project_name}':"]
+                    if project_project_name:
+                        response_lines = [f"Resumen de órdenes para '{project_project_name}':"]
+                    else:
+                        response_lines = ["Resumen de órdenes:"]
                     
                     for row in status_counts:
                         status_id = row.order_status_id
@@ -57,7 +82,10 @@ async def query_database(db: AsyncSession, query_type: str, message: str, projec
                     
                     return "\n".join(response_lines)
                 else:
-                    return f"No se encontraron órdenes para '{project_project_name}' en 'data_testdata'."
+                    if project_project_name:
+                        return f"No se encontraron órdenes para '{project_project_name}' en 'data_testdata'."
+                    else:
+                        return f"No se encontraron órdenes en 'data_testdata'."
         
         except Exception as e:
             print(f"Database query error for order_status with data_testdata: {e}")
@@ -88,40 +116,71 @@ async def query_database(db: AsyncSession, query_type: str, message: str, projec
             
             # Construir consulta según el caso
             if specific_description:
-                stmt = text("""
-                    SELECT description, total, day1_value, day2_value, day3_value, 
-                           day4_value, day5_value, day6_value, day7_value
-                    FROM data_datacardreport
-                    WHERE warehouse = :warehouse_name 
-                      AND description ILIKE :desc_pattern
-                    ORDER BY year DESC, week DESC
-                    LIMIT :limit_count
-                """)
-                result = await db.execute(stmt, {
-                    "warehouse_name": project_project_name,
-                    "desc_pattern": f"%{specific_description}%",
-                    "limit_count": limit_count
-                })
+                if project_project_name:
+                    stmt = text("""
+                        SELECT description, total, day1_value, day2_value, day3_value, 
+                               day4_value, day5_value, day6_value, day7_value
+                        FROM data_datacardreport
+                        WHERE warehouse = :warehouse_name 
+                          AND description ILIKE :desc_pattern
+                        ORDER BY year DESC, week DESC
+                        LIMIT :limit_count
+                    """)
+                    result = await db.execute(stmt, {
+                        "warehouse_name": project_project_name,
+                        "desc_pattern": f"%{specific_description}%",
+                        "limit_count": limit_count
+                    })
+                else:
+                    stmt = text("""
+                        SELECT description, total, day1_value, day2_value, day3_value, 
+                               day4_value, day5_value, day6_value, day7_value
+                        FROM data_datacardreport
+                        WHERE description ILIKE :desc_pattern
+                        ORDER BY year DESC, week DESC
+                        LIMIT :limit_count
+                    """)
+                    result = await db.execute(stmt, {
+                        "desc_pattern": f"%{specific_description}%",
+                        "limit_count": limit_count
+                    })
             else:
-                stmt = text("""
-                    SELECT description, total, day1_value, day7_value 
-                    FROM data_datacardreport
-                    WHERE warehouse = :warehouse_name
-                    ORDER BY year DESC, week DESC, section, list_order
-                    LIMIT :limit_count
-                """)
-                result = await db.execute(stmt, {
-                    "warehouse_name": project_project_name,
-                    "limit_count": limit_count
-                })
+                if project_project_name:
+                    stmt = text("""
+                        SELECT description, total, day1_value, day7_value 
+                        FROM data_datacardreport
+                        WHERE warehouse = :warehouse_name
+                        ORDER BY year DESC, week DESC, section, list_order
+                        LIMIT :limit_count
+                    """)
+                    result = await db.execute(stmt, {
+                        "warehouse_name": project_project_name,
+                        "limit_count": limit_count
+                    })
+                else:
+                    stmt = text("""
+                        SELECT description, total, day1_value, day7_value 
+                        FROM data_datacardreport
+                        ORDER BY year DESC, week DESC, section, list_order
+                        LIMIT :limit_count
+                    """)
+                    result = await db.execute(stmt, {
+                        "limit_count": limit_count
+                    })
             
             reports = result.fetchall()
             
             if not reports:
                 if specific_description:
-                    return f"No se encontraron reportes que coincidan con '{specific_description}' para '{project_project_name}'."
+                    if project_project_name:
+                        return f"No se encontraron reportes que coincidan con '{specific_description}' para '{project_project_name}'."
+                    else:
+                        return f"No se encontraron reportes que coincidan con '{specific_description}'."
                 else:
-                    return f"No se encontraron reportes para '{project_project_name}'."
+                    if project_project_name:
+                        return f"No se encontraron reportes para '{project_project_name}'."
+                    else:
+                        return f"No se encontraron reportes."
             
             # Formatear respuesta según el caso
             if specific_description:
