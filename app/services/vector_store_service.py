@@ -31,6 +31,21 @@ def get_vector_store() -> PGVector:
     )
     return store
 
+def clear_vector_store():
+    """
+    Elimina todos los vectores de la colección definida en PGVector.
+    Útil para limpiar el vector store antes de una nueva ingestión.
+    """
+    store = get_vector_store()
+    # PGVector no expone un método directo para borrar todos los documentos,
+    # pero puedes usar el método delete_collection si quieres eliminar toda la colección.
+    # Luego, se puede volver a crear automáticamente al agregar nuevos textos.
+    try:
+        store.delete_collection()
+        print(f"Colección '{COLLECTION_NAME}' eliminada correctamente.")
+    except Exception as e:
+        print(f"Error al eliminar la colección: {e}")
+
 async def add_texts_to_vector_store(texts: list[str], metadatas: list[dict] | None = None):
     """
     Adds texts to the vector store.
@@ -69,51 +84,32 @@ async def get_rag_context(query: str, project: str | None = None, k: int = 3) ->
     """
     search_filter = None
     if project:
-        # PGVector filter format for metadata: {"project": "your_project_name"}
-        search_filter = {"project": project} 
+        search_filter = {"project": project}
         print(f"Searching with filter: {search_filter}")
 
-
-    # The similarity_search_with_score method in the Langchain PGVector integration
-    # should accept a 'filter' argument for metadata filtering if the version supports it.
-    # Let's assume it does, based on common Langchain vector store patterns.
-    # If direct filtering isn't supported effectively by the version of PGVector/Langchain you're using,
-    # you might need to retrieve more results and filter them in Python, as shown in commented code below.
-
-    # import asyncio
-    # relevant_docs_with_scores = await asyncio.to_thread(
-    #     similarity_search_with_score, query=query, k=k, filter=search_filter
-    # )
-    # For now, directly calling the async wrapper we defined, assuming it handles threading
     relevant_docs_with_scores = await similarity_search_with_score(query=query, k=k, filter=search_filter)
 
     if not relevant_docs_with_scores:
         return "No relevant documents found in the vector store for your query and project."
 
-    # If direct filtering worked, relevant_docs_with_scores are already filtered.
-    # If not, you would filter here:
-    # filtered_docs = []
-    # if project:
-    #     for doc_info in relevant_docs_with_scores:
-    #         if doc_info["metadata"].get("project") == project:
-    #             filtered_docs.append(doc_info["page_content"])
-    #         if len(filtered_docs) >= k:
-    #             break
-    # else:
-    #     filtered_docs = [doc_info["page_content"] for doc_info in relevant_docs_with_scores[:k]]
-    
-    # context = "\n\n---\n\n".join(filtered_docs)
-    
     context_parts = [doc_info["page_content"] for doc_info in relevant_docs_with_scores]
     context = "\n\n---\n\n".join(context_parts)
-    
+
+    # LOG: Muestra el contexto que se le pasa al modelo
+    print("\n[DEBUG] Contexto enviado al modelo para RAG:")
+    print(context)
+    print("\n[DEBUG] --- Fin del contexto ---\n")
+
     return context
 
 async def ingest_table_to_vector_store(table_name: str, db: AsyncSession, project: str = None):
     """
-    Ingresa todas las filas de una tabla específica al vector store, con metadatos de tabla y proyecto.
-    En el caso de data_datacardreport, enriquece el texto con alias de warehouse, días de la semana y ejemplos de frase de usuario.
+    Ingresa todas las filas de la tabla data_orders al vector store, con metadatos de tabla y proyecto.
+    Solo se permite la tabla data_orders.
     """
+    if table_name != "data_orders":
+        print(f"Solo se permite la tabla 'data_orders'. Se ignoró: {table_name}")
+        return
     # Obtén todas las filas de la tabla
     query = text(f'SELECT * FROM {table_name}')
     result = await db.execute(query)
@@ -123,47 +119,10 @@ async def ingest_table_to_vector_store(table_name: str, db: AsyncSession, projec
         return
     texts = []
     metadatas = []
-    # Alias de warehouse conocidos (puedes expandir esta lista según tus datos reales)
-    warehouse_aliases = {
-        "(WH: 10) - Boca Raton (951)  - FL": ["warehouse 10", "boca", "boca raton", "951", "florida", "boca warehouse", "boca raton warehouse", "warehouse boca", "warehouse 951", "warehouse de boca", "warehouse del 951", "warehouse de florida"],
-        # Agrega aquí otros warehouses si existen
-    }
-    # Traducción de días
-    day_map = {
-        1: ("Lunes", "Monday"),
-        2: ("Martes", "Tuesday"),
-        3: ("Miércoles", "Wednesday"),
-        4: ("Jueves", "Thursday"),
-        5: ("Viernes", "Friday"),
-        6: ("Sábado", "Saturday"),
-        7: ("Domingo", "Sunday"),
-    }
     for row in rows:
         row_dict = dict(row._mapping)
-        if table_name == "data_datacardreport":
-            warehouse = row_dict.get("warehouse_order") or row_dict.get("warehouse")
-            warehouse_id = row_dict.get("warehouse_id") or row_dict.get("warehouseid") or row_dict.get("warehouse_id")
-            week = row_dict.get("week")
-            year = row_dict.get("year")
-            description = row_dict.get("description")
-            # Alias
-            aliases = warehouse_aliases.get(warehouse, [])
-            alias_text = ", ".join(aliases)
-            # Días y valores
-            day_values = []
-            for i in range(1, 8):
-                day_col = f"day{i}_value"
-                val = row_dict.get(day_col)
-                if val is not None:
-                    day_es, day_en = day_map[i]
-                    day_values.append(f"{day_col} ({day_es}/{day_en}): {val}")
-            day_values_text = "; ".join(day_values)
-            # Ejemplo de frase de usuario
-            example = f"Ejemplo: '{description}' del warehouse 10 (Boca Raton, 951, FL) en la semana {week} del {year}"
-            # Texto enriquecido
-            row_text = f"Descripción: {description}. Warehouse: {warehouse} (id: {warehouse_id}, alias: {alias_text}). Semana: {week}, Año: {year}. {day_values_text}. {example}. Nota: day1_value=Lunes/Monday, day2_value=Martes/Tuesday, ... day7_value=Domingo/Sunday."
-        else:
-            row_text = ", ".join([f"{k}: {v}" for k, v in row_dict.items()])
+        # Construye un texto simple y claro para cada orden
+        row_text = ", ".join([f"{k}: {v}" for k, v in row_dict.items()])
         texts.append(row_text)
         meta = {"source_table": table_name}
         if project:
