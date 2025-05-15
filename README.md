@@ -89,7 +89,7 @@ Por ejemplo, la función `query_database` actualmente tiene ejemplos para una ta
 Para iniciar el servidor de desarrollo Uvicorn:
 
 ```bash
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8080
 ```
 
 -   `--reload`: El servidor se reiniciará automáticamente después de cambios en el código.
