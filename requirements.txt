@@ -1,6 +1,5 @@
 annotated-types==0.7.0
 anyio==4.9.0
-async-timeout==5.0.1
 asyncpg==0.30.0
 certifi==2025.4.26
 cffi==1.17.1
@@ -39,3 +38,8 @@ typing_extensions==4.13.2
 uvicorn==0.34.2
 watchfiles==1.0.5
 websockets==15.0.1
+# LangChain and pgvector dependencies
+langchain==0.2.1
+langchain-openai==0.1.7
+langchain-community==0.2.1
+pgvector==0.2.5
