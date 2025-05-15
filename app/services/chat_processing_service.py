@@ -26,6 +26,24 @@ async def process_chat_message(db: AsyncSession, message: str, user_id: str, pro
 
     # Priority 2: Attempt RAG for other queries, especially if project-specific
     print(f"Attempting RAG for project: {project}, message: {message}")
+
+    # --- RAG tabla controlada ---
+    # Decide a qué tabla buscar según la pregunta
+    table = None
+    if re.search(r'\btest|testing\b', message, re.IGNORECASE):
+        table = "data_testdata"
+    elif re.search(r'\bdata ?card|datacard|dashboard|reporte|report|estadistica|section|day[1-7]_value\b', message, re.IGNORECASE):
+        table = "data_datacardreport"
+    
+    if table:
+        # Solo busca en el vector store los datos de esa tabla
+        rag_context = await get_rag_context(query=message, project=None, k=3, filter={"source_table": table})
+        if rag_context and "No relevant documents found" not in rag_context:
+            rag_prompt = f"""Basado en el siguiente contexto de la tabla '{table}':\nNota: day1_value=Lunes, day2_value=Martes, ... day7_value=Domingo.\nContexto:\n{rag_context}\n---\nPregunta del usuario: {message}\n---\nResponde de forma concisa solo usando el contexto. Si el contexto no contiene la respuesta, dilo explícitamente."""
+            return await get_openai_response(message=rag_prompt, project_context=f"rag_for_{table}")
+        else:
+            return "No hay información relevante en la base de datos permitida para tu consulta."
+
     rag_context = await get_rag_context(query=message, project=project)
 
     if rag_context and "No relevant documents found" not in rag_context:

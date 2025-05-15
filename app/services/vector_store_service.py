@@ -2,6 +2,7 @@
 from langchain_community.vectorstores.pgvector import PGVector
 from langchain_openai import OpenAIEmbeddings
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import text
 from app.core.config import settings
 # Assuming your session module provides a way to get a synchronous engine or connection string
 # For PGVector, the connection string needs to be for a synchronous psycopg2 connection.
@@ -107,6 +108,36 @@ async def get_rag_context(query: str, project: str | None = None, k: int = 3) ->
     context = "\n\n---\n\n".join(context_parts)
     
     return context
+
+async def ingest_table_to_vector_store(table_name: str, db: AsyncSession, project: str = None):
+    """
+    Ingresa todas las filas de una tabla específica al vector store, con metadatos de tabla y proyecto.
+    """
+    # Obtén todas las filas de la tabla
+    query = text(f'SELECT * FROM {table_name}')
+    result = await db.execute(query)
+    rows = result.fetchall()
+    if not rows:
+        print(f"No data found in table {table_name}")
+        return
+    # Convierte cada fila en un texto entendible
+    texts = []
+    metadatas = []
+    for row in rows:
+        # Puedes personalizar este formato según la tabla
+        row_dict = dict(row._mapping)
+        # Ejemplo simple: convierte todos los campos en texto
+        row_text = ", ".join([f"{k}: {v}" for k, v in row_dict.items()])
+        # Puedes añadir notas específicas aquí, por ejemplo para data_datacardreport
+        if table_name == "data_datacardreport":
+            row_text += ". Nota: day1_value=Lunes, day2_value=Martes, ... day7_value=Domingo."
+        texts.append(row_text)
+        meta = {"source_table": table_name}
+        if project:
+            meta["project"] = project
+        metadatas.append(meta)
+    await add_texts_to_vector_store(texts, metadatas)
+    print(f"Ingested {len(texts)} rows from {table_name} into vector store.")
 
 # Placeholder for initial data loading - to be called at startup
 async def initialize_vector_store_if_needed():
