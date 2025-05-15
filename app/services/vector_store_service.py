@@ -112,6 +112,7 @@ async def get_rag_context(query: str, project: str | None = None, k: int = 3) ->
 async def ingest_table_to_vector_store(table_name: str, db: AsyncSession, project: str = None):
     """
     Ingresa todas las filas de una tabla específica al vector store, con metadatos de tabla y proyecto.
+    En el caso de data_datacardreport, enriquece el texto con alias de warehouse, días de la semana y ejemplos de frase de usuario.
     """
     # Obtén todas las filas de la tabla
     query = text(f'SELECT * FROM {table_name}')
@@ -120,17 +121,49 @@ async def ingest_table_to_vector_store(table_name: str, db: AsyncSession, projec
     if not rows:
         print(f"No data found in table {table_name}")
         return
-    # Convierte cada fila en un texto entendible
     texts = []
     metadatas = []
+    # Alias de warehouse conocidos (puedes expandir esta lista según tus datos reales)
+    warehouse_aliases = {
+        "(WH: 10) - Boca Raton (951)  - FL": ["warehouse 10", "boca", "boca raton", "951", "florida", "boca warehouse", "boca raton warehouse", "warehouse boca", "warehouse 951", "warehouse de boca", "warehouse del 951", "warehouse de florida"],
+        # Agrega aquí otros warehouses si existen
+    }
+    # Traducción de días
+    day_map = {
+        1: ("Lunes", "Monday"),
+        2: ("Martes", "Tuesday"),
+        3: ("Miércoles", "Wednesday"),
+        4: ("Jueves", "Thursday"),
+        5: ("Viernes", "Friday"),
+        6: ("Sábado", "Saturday"),
+        7: ("Domingo", "Sunday"),
+    }
     for row in rows:
-        # Puedes personalizar este formato según la tabla
         row_dict = dict(row._mapping)
-        # Ejemplo simple: convierte todos los campos en texto
-        row_text = ", ".join([f"{k}: {v}" for k, v in row_dict.items()])
-        # Puedes añadir notas específicas aquí, por ejemplo para data_datacardreport
         if table_name == "data_datacardreport":
-            row_text += ". Nota: day1_value=Lunes, day2_value=Martes, ... day7_value=Domingo."
+            warehouse = row_dict.get("warehouse_order") or row_dict.get("warehouse")
+            warehouse_id = row_dict.get("warehouse_id") or row_dict.get("warehouseid") or row_dict.get("warehouse_id")
+            week = row_dict.get("week")
+            year = row_dict.get("year")
+            description = row_dict.get("description")
+            # Alias
+            aliases = warehouse_aliases.get(warehouse, [])
+            alias_text = ", ".join(aliases)
+            # Días y valores
+            day_values = []
+            for i in range(1, 8):
+                day_col = f"day{i}_value"
+                val = row_dict.get(day_col)
+                if val is not None:
+                    day_es, day_en = day_map[i]
+                    day_values.append(f"{day_col} ({day_es}/{day_en}): {val}")
+            day_values_text = "; ".join(day_values)
+            # Ejemplo de frase de usuario
+            example = f"Ejemplo: '{description}' del warehouse 10 (Boca Raton, 951, FL) en la semana {week} del {year}"
+            # Texto enriquecido
+            row_text = f"Descripción: {description}. Warehouse: {warehouse} (id: {warehouse_id}, alias: {alias_text}). Semana: {week}, Año: {year}. {day_values_text}. {example}. Nota: day1_value=Lunes/Monday, day2_value=Martes/Tuesday, ... day7_value=Domingo/Sunday."
+        else:
+            row_text = ", ".join([f"{k}: {v}" for k, v in row_dict.items()])
         texts.append(row_text)
         meta = {"source_table": table_name}
         if project:

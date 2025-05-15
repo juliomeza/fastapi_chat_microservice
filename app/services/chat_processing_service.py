@@ -6,31 +6,80 @@ from app.services.vector_store_service import get_rag_context
 async def process_chat_message(db: AsyncSession, message: str, user_id: str, project: str) -> str:
     """
     Usa RAG como primera y principal opción para responder preguntas.
+    Preprocesa la pregunta para mapear alias de warehouse, días y semanas.
     """
-    # Detecta si la pregunta es sobre data_testdata o data_datacardreport
+    # Alias de warehouse conocidos (debe coincidir con los usados en la ingestión)
+    warehouse_aliases = {
+        "(WH: 10) - Boca Raton (951)  - FL": ["warehouse 10", "boca", "boca raton", "951", "florida", "boca warehouse", "boca raton warehouse", "warehouse boca", "warehouse 951", "warehouse de boca", "warehouse del 951", "warehouse de florida"],
+        # Agrega aquí otros warehouses si existen
+    }
+    # Mapeo inverso alias -> warehouse
+    alias_to_warehouse = {}
+    for wh, aliases in warehouse_aliases.items():
+        for alias in aliases:
+            alias_to_warehouse[alias.lower()] = wh
+    # Días de la semana
+    day_map = {
+        "lunes": "day1_value", "monday": "day1_value",
+        "martes": "day2_value", "tuesday": "day2_value",
+        "miércoles": "day3_value", "wednesday": "day3_value",
+        "jueves": "day4_value", "thursday": "day4_value",
+        "viernes": "day5_value", "friday": "day5_value",
+        "sábado": "day6_value", "saturday": "day6_value",
+        "domingo": "day7_value", "sunday": "day7_value",
+    }
+    # Detectar warehouse por alias en la pregunta
+    warehouse_detected = None
+    for alias, wh in alias_to_warehouse.items():
+        if re.search(rf"\\b{re.escape(alias)}\\b", message, re.IGNORECASE):
+            warehouse_detected = wh
+            break
+    # Detectar día de la semana
+    day_detected = None
+    for day_word, day_col in day_map.items():
+        if re.search(rf"\\b{day_word}\\b", message, re.IGNORECASE):
+            day_detected = day_col
+            break
+    # Detectar semana del año (ej: semana 20, week 20)
+    week_detected = None
+    year_detected = None
+    week_match = re.search(r"semana[\s:-]*(\d{1,2})", message, re.IGNORECASE) or re.search(r"week[\s:-]*(\d{1,2})", message, re.IGNORECASE)
+    if week_match:
+        week_detected = int(week_match.group(1))
+        # Buscar año si está presente
+        year_match = re.search(r"(\d{4})", message)
+        if year_match:
+            year_detected = int(year_match.group(1))
+    # Si se detecta una tabla, filtra el RAG por esa tabla
     table = None
     if re.search(r'\btest|testing\b', message, re.IGNORECASE):
         table = "data_testdata"
     elif re.search(r'\bdata ?card|datacard|dashboard|reporte|report|estadistica|section|day[1-7]_value\b', message, re.IGNORECASE):
         table = "data_datacardreport"
-
-    # Si se detecta una tabla, filtra el RAG por esa tabla
-    if table:
-        rag_context = await get_rag_context(query=message, project=None, k=3, filter={"source_table": table})
+    # Si se detecta una tabla, filtra el RAG por esa tabla y aplica filtros adicionales
+    if table == "data_datacardreport":
+        rag_filter = {"source_table": table}
+        if warehouse_detected:
+            rag_filter["warehouse_order"] = warehouse_detected
+        if week_detected:
+            rag_filter["week"] = week_detected
+        if year_detected:
+            rag_filter["year"] = year_detected
+        rag_context = await get_rag_context(query=message, project=None, k=3, filter=rag_filter)
         if rag_context and "No relevant documents found" not in rag_context:
-            rag_prompt = f"""Basado en el siguiente contexto de la tabla '{table}':\nNota: day1_value=Lunes, day2_value=Martes, ... day7_value=Domingo.\nContexto:\n{rag_context}\n---\nPregunta del usuario: {message}\n---\nResponde de forma concisa solo usando el contexto. Si el contexto no contiene la respuesta, dilo explícitamente."""
+            extra_note = "Nota: day1_value=Lunes/Monday, day2_value=Martes/Tuesday, ... day7_value=Domingo/Sunday. Puedes preguntar usando alias de warehouse como 'Boca', '951', 'Florida', etc. Ejemplo: 'ORDERS SHIPPED del warehouse 10 de la semana 15 del 2025'."
+            rag_prompt = f"Basado en el siguiente contexto de la tabla '{table}':\n{extra_note}\nContexto:\n{rag_context}\n---\nPregunta del usuario: {message}\n---\nResponde de forma concisa solo usando el contexto. Si el contexto no contiene la respuesta, dilo explícitamente."
             return await get_openai_response(message=rag_prompt, project_context=f"rag_for_{table}")
         else:
             return "No hay información relevante en la base de datos permitida para tu consulta."
-
     # Si no se detecta tabla, busca en todo el vector store (por proyecto si aplica)
     rag_context = await get_rag_context(query=message, project=project)
     if rag_context and "No relevant documents found" not in rag_context:
         # Solo menciona el proyecto si project no es None
         if project:
-            rag_prompt = f"""Based on the following context from project '{project}':\nContext:\n{rag_context}\n---\nUser query: {message}\n---\nProvide a concise answer based *only* on the provided context. If the context does not contain the answer, say so.\n"""
+            rag_prompt = f"Based on the following context from project '{project}':\nContext:\n{rag_context}\n---\nUser query: {message}\n---\nProvide a concise answer based *only* on the provided context. If the context does not contain the answer, say so.\n"
         else:
-            rag_prompt = f"""Based on the following context:\nContext:\n{rag_context}\n---\nUser query: {message}\n---\nProvide a concise answer based *only* on the provided context. If the context does not contain the answer, say so.\n"""
+            rag_prompt = f"Based on the following context:\nContext:\n{rag_context}\n---\nUser query: {message}\n---\nProvide a concise answer based *only* on the provided context. If the context does not contain the answer, say so.\n"
         return await get_openai_response(message=rag_prompt, project_context=f"rag_for_{project}" if project else None)
     else:
         return "No hay información relevante en la base de datos permitida para tu consulta."
