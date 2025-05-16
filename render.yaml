@@ -1,0 +1,33 @@
+services:
+  - type: web
+    name: fastapi-chat-microservice
+    env: python
+    region: virginia # Puedes cambiar esto a tu región preferida (e.g., frankfurt, ohio, singapore)
+    plan: free # O el plan que prefieras
+    # Especifica la versión de Python. Asegúrate de que sea compatible con tu código (3.8+).
+    # Render soporta versiones como "3.8", "3.9", "3.10", "3.11", "3.12".
+    # Si tu requirements.txt fue generado con una versión específica, intenta usar esa.
+    pythonVersion: "3.10" 
+    buildCommand: |
+      pip install --upgrade pip
+      pip install -r requirements.txt
+    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: DATABASE_URL
+        # Este valor lo configurarás directamente en el dashboard de Render.
+        # Ejemplo: postgresql+asyncpg://USER:PASSWORD@HOST:PORT/DATABASE
+        sync: false 
+      - key: OPENAI_API_KEY
+        # Este valor lo configurarás directamente en el dashboard de Render.
+        sync: false
+      - key: JWT_SECRET_KEY
+        # Este valor lo configurarás directamente en el dashboard de Render.
+        sync: false
+      - key: ALGORITHM
+        # Este valor lo configurarás directamente en el dashboard de Render (e.g., HS256).
+        sync: false
+      # ACCESS_TOKEN_EXPIRE_MINUTES no es usado por este servicio para generar tokens,
+      # pero si alguna otra parte de tu lógica lo necesita, añádelo aquí o en el dashboard.
+      # - key: ACCESS_TOKEN_EXPIRE_MINUTES
+      #   value: "30" # O configúralo en el dashboard
+      #   sync: false
