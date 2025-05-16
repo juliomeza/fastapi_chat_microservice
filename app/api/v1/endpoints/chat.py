@@ -30,7 +30,6 @@ async def handle_chat_message(
     response_text = await process_chat_message(
         db=db,
         message=request.mensaje,
-        user_id=request.usuario_id, # Using usuario_id from request body
-        project=request.proyecto
+        user_id=request.usuario_id # Using usuario_id from request body
     )
-    return ChatResponse(respuesta=response_text, usuario_id=request.usuario_id, proyecto=request.proyecto)
+    return ChatResponse(respuesta=response_text, usuario_id=request.usuario_id)

@@ -77,20 +77,18 @@ async def similarity_search_with_score(query: str, k: int = 4, filter: dict | No
         })
     return results
 
-async def get_rag_context(query: str, project: str | None = None, k: int = 3) -> str:
+async def get_rag_context(query: str, k: int = 3, filter: dict | None = None) -> str:
     """
     Performs similarity search and formats the results as context for RAG.
-    Filters by project if provided in metadata.
+    Optionally filters by a filter dictionary if provided.
     """
-    search_filter = None
-    if project:
-        search_filter = {"project": project}
-        print(f"Searching with filter: {search_filter}")
+    if filter:
+        print(f"Searching with filter: {filter}")
 
-    relevant_docs_with_scores = await similarity_search_with_score(query=query, k=k, filter=search_filter)
+    relevant_docs_with_scores = await similarity_search_with_score(query=query, k=k, filter=filter)
 
     if not relevant_docs_with_scores:
-        return "No relevant documents found in the vector store for your query and project."
+        return "No relevant documents found in the vector store for your query."
 
     context_parts = [doc_info["page_content"] for doc_info in relevant_docs_with_scores]
     context = "\n\n---\n\n".join(context_parts)
