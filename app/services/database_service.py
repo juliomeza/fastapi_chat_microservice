@@ -37,7 +37,7 @@ Answer: "Final answer here"
 Only use the following tables (schema details might be limited by {top_k} if applicable):
 {table_info}
 
-If someone asks for the table "data_orders", they really mean the table "data_orders".
+If someone asks for the table "orders", they really mean the table "data_orders".
 
 Question: {input}"""
 
@@ -93,14 +93,14 @@ async def get_answer_from_table_via_langchain(db_session: AsyncSession, question
         # Step 3: Get a natural language answer from the query result (optional, can also return raw result)
         answer_prompt_template = PromptTemplate(
             input_variables=["question", "sql_query", "sql_result"],
-            template="""Dada la pregunta del usuario, la consulta SQL generada y el resultado de la consulta,
-por favor proporciona una respuesta concisa y en lenguaje natural al usuario.
+            template="""Given the user's question, the generated SQL query, and the SQL result,
+please provide a concise, natural language answer to the user in the same language as the original question.
 
-Pregunta: {question}
-Consulta SQL: {sql_query}
-Resultado SQL: {sql_result}
+Question: {question}
+SQLQuery: {sql_query}
+SQLResult: {sql_result}
 
-Respuesta:"""
+Answer:"""
         )
         answer_chain = answer_prompt_template | llm
         
