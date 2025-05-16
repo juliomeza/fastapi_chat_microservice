@@ -4,12 +4,14 @@ from app.services.openai_service import get_openai_response
 from app.services.vector_store_service import get_rag_context
 # Import the new LangChain Text-to-SQL function
 from app.services.database_service import get_answer_from_table_via_langchain
+from typing import Optional, Any  # Add Optional and Any imports
 
-async def process_chat_message(db: AsyncSession, message: str, user_id: str) -> str:
+async def process_chat_message(db: AsyncSession, message: str, user_id: str) -> tuple[str, Optional[Any]]:
     """
     Usa RAG como primera y principal opción para responder preguntas.
     Preprocesa la pregunta para mapear alias de warehouse, días y semanas.
     Si la pregunta parece ser para la tabla 'data_orders', usa LangChain Text-to-SQL.
+    Devuelve la respuesta en lenguaje natural y, opcionalmente, datos JSON.
     """
     # Alias de warehouse conocidos (debe coincidir con los usados en la ingestión)
     warehouse_aliases = {
@@ -65,7 +67,9 @@ async def process_chat_message(db: AsyncSession, message: str, user_id: str) -> 
     if is_for_data_orders:
         # Use LangChain Text-to-SQL for data_orders
         # We pass the db session and the message
-        return await get_answer_from_table_via_langchain(db_session=db, question=message, table_name="data_orders")
+        # Returns natural language answer and json_data
+        nl_answer, json_data = await get_answer_from_table_via_langchain(db_session=db, question=message, table_name="data_orders")
+        return nl_answer, json_data
 
     # Si se detecta una tabla, filtra el RAG por esa tabla
     table = None
@@ -86,13 +90,13 @@ async def process_chat_message(db: AsyncSession, message: str, user_id: str) -> 
         if rag_context and "No relevant documents found" not in rag_context:
             extra_note = "Nota: day1_value=Lunes/Monday, day2_value=Martes/Tuesday, ... day7_value=Domingo/Sunday. Puedes preguntar usando alias de warehouse como 'Boca', '951', 'Florida', etc. Ejemplo: 'ORDERS SHIPPED del warehouse 10 de la semana 15 del 2025'."
             rag_prompt = f"Basado en el siguiente contexto de la tabla '{table}':\n{extra_note}\nContexto:\n{rag_context}\n---\nPregunta del usuario: {message}\n---\nResponde de forma concisa solo usando el contexto. Si el contexto no contiene la respuesta, dilo explícitamente."
-            return await get_openai_response(message=rag_prompt, project_context=f"rag_for_{table}")
+            return await get_openai_response(message=rag_prompt, project_context=f"rag_for_{table}"), None
         else:
-            return "No hay información relevante en la base de datos permitida para tu consulta."
-    # Si no se detecta tabla, busca en todo el vector store
+            return "No hay información relevante en la base de datos permitida para tu consulta.", None
+    
     rag_context = await get_rag_context(query=message)
     if rag_context and "No relevant documents found" not in rag_context:
         rag_prompt = f"Based on the following context:\nContext:\n{rag_context}\n---\nUser query: {message}\n---\nProvide a concise answer based *only* on the provided context. If the context does not contain the answer, say so.\n"
-        return await get_openai_response(message=rag_prompt)
+        return await get_openai_response(message=rag_prompt), None
     else:
-        return "No hay información relevante en la base de datos permitida para tu consulta."
+        return "No hay información relevante en la base de datos permitida para tu consulta.", None

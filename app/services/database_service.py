@@ -1,6 +1,8 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import text
 import re
+import json  # Add json import
+from typing import Optional, Any  # Import Optional and Any
 # LangChain imports for Text-to-SQL
 from langchain_openai import ChatOpenAI
 from langchain_community.utilities.sql_database import SQLDatabase
@@ -49,33 +51,30 @@ custom_prompt = PromptTemplate(
 generate_query_chain = create_sql_query_chain(llm, db_langchain, prompt=custom_prompt)
 
 
-async def execute_sql_query(db_session: AsyncSession, query: str) -> str:
+async def execute_sql_query(db_session: AsyncSession, query: str) -> tuple[str, Optional[Any]]:
     """
-    Executes a given SQL query using the async session and returns the result as a string.
+    Executes a given SQL query using the async session and returns the result as a string and structured JSON data.
     """
     try:
         result = await db_session.execute(text(query))
         if result.returns_rows:
             rows = result.fetchall()
             if rows:
-                # Format rows for display. This can be improved.
                 column_names = result.keys()
-                formatted_rows = [dict(zip(column_names, row)) for row in rows]
-                return str(formatted_rows)  # Convert list of dicts to string
+                structured_rows = [dict(zip(column_names, row)) for row in rows]
+                return str(structured_rows), structured_rows  # Return string representation and structured data
             else:
-                return "La consulta no devolvió resultados."
+                return "La consulta no devolvió resultados.", None  # Return None for structured_data
         else:
-            # For queries like INSERT, UPDATE, DELETE that don't return rows
-            # but might return rowcount
-            return f"Consulta ejecutada. Filas afectadas: {result.rowcount}"
+            return f"Consulta ejecutada. Filas afectadas: {result.rowcount}", None  # Return None for structured_data
     except Exception as e:
-        return f"Error al ejecutar la consulta SQL: {e}"
+        return f"Error al ejecutar la consulta SQL: {e}", None  # Return None for structured_data
 
 
-async def get_answer_from_table_via_langchain(db_session: AsyncSession, question: str, table_name: str = "data_orders") -> str:
+async def get_answer_from_table_via_langchain(db_session: AsyncSession, question: str, table_name: str = "data_orders") -> tuple[str, Optional[Any]]:
     """
     Generates an SQL query from a natural language question using LangChain,
-    executes it, and returns the answer.
+    executes it, and returns the answer as a natural language string and structured JSON data.
     Focuses on a specific table (e.g., data_orders).
     """
     try:
@@ -85,14 +84,14 @@ async def get_answer_from_table_via_langchain(db_session: AsyncSession, question
         # Clean up the generated query if it's wrapped in backticks or "SQLQuery:"
         sql_query = sql_query.strip().replace("SQLQuery:", "").replace("`", "").replace("sql", "").strip()
         if not sql_query.lower().startswith("select"):  # Basic validation
-            return f"La consulta generada no parece válida: {sql_query}"
+            return f"La consulta generada no parece válida: {sql_query}", None  # Return None for json_data
 
-        # Step 2: Execute SQL query
-        query_result = await execute_sql_query(db_session, sql_query)
+        # Step 2: Execute SQL query and get structured data
+        raw_query_result, structured_data = await execute_sql_query(db_session, sql_query)  # Modified to get structured_data
 
-        # Step 3: Get a natural language answer from the query result (optional, can also return raw result)
+        # Step 3: Get a natural language answer from the query result
         answer_prompt_template = PromptTemplate(
-            input_variables=["question", "sql_query", "sql_result"],
+            input_variables=["question", "sql_query", "sql_result"],  # Corrected: "sql_result" was "raw_query_result"
             template="""Given the user's question, the generated SQL query, and the SQL result,
 please provide a concise, natural language answer to the user in the same language as the original question.
 Ensure the answer directly includes the specific data from the SQLResult, such as counts, names, or values, not just a generic statement that the data is available.
@@ -110,13 +109,13 @@ Answer:"""
         final_answer = await answer_chain.ainvoke({
             "question": question,
             "sql_query": sql_query,
-            "sql_result": query_result
+            "sql_result": raw_query_result  # This is the actual variable name with the result
         })
         
-        return final_answer.content
+        return final_answer.content, structured_data  # Return natural language answer and structured_data
 
     except Exception as e:
-        return f"Error procesando la pregunta con LangChain Text-to-SQL: {e}"
+        return f"Error procesando la pregunta con LangChain Text-to-SQL: {e}", None  # Return None for json_data
 
 
 async def query_database(db: AsyncSession, query_type: str, message: str, user_id: str) -> str:

@@ -27,9 +27,9 @@ async def handle_chat_message(
     # if request.usuario_id != str(token_user_id):
     #     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User ID in request does not match token")
 
-    response_text = await process_chat_message(
+    response_text, json_data = await process_chat_message( # Capture json_data
         db=db,
         message=request.mensaje,
         user_id=request.usuario_id # Using usuario_id from request body
     )
-    return ChatResponse(respuesta=response_text, usuario_id=request.usuario_id)
+    return ChatResponse(respuesta=response_text, usuario_id=request.usuario_id, json_data=json_data) # Include json_data in the response
