@@ -9,8 +9,7 @@ from app.services.vector_store_service import ingest_table_to_vector_store
 async def main():
     async with AsyncSessionLocal() as db:
         # Cambia o agrega aquí los nombres de las tablas que quieras cargar
-        await ingest_table_to_vector_store("data_testdata", db)
-        await ingest_table_to_vector_store("data_datacardreport", db)
+        await ingest_table_to_vector_store("data_orders", db)
         # Ejemplo para agregar otra tabla en el futuro:
         # await ingest_table_to_vector_store("nombre_de_tu_tabla", db)
 
