@@ -95,6 +95,9 @@ async def get_answer_from_table_via_langchain(db_session: AsyncSession, question
             input_variables=["question", "sql_query", "sql_result"],
             template="""Given the user's question, the generated SQL query, and the SQL result,
 please provide a concise, natural language answer to the user in the same language as the original question.
+Ensure the answer directly includes the specific data from the SQLResult, such as counts, names, or values, not just a generic statement that the data is available.
+
+For example, if the SQLResult shows a breakdown of order types and their counts, the answer should list these types and counts.
 
 Question: {question}
 SQLQuery: {sql_query}
