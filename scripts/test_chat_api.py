@@ -30,8 +30,8 @@ headers = {
 
 for idx, question in enumerate(questions, 1):
     payload = {
-        "mensaje": question,
-        "usuario_id": USER_ID
+        "message": question,  # Changed from 'mensaje' to 'message'
+        "user_id": USER_ID    # Changed from 'usuario_id' to 'user_id'
     }
     response = requests.post(API_URL, json=payload, headers=headers)
     print(f"\nQuestion {idx}: {question}")

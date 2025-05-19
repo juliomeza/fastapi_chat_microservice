@@ -29,7 +29,7 @@ async def handle_chat_message(
 
     response_text, json_data = await process_chat_message( # Capture json_data
         db=db,
-        message=request.mensaje,
-        user_id=request.usuario_id # Using usuario_id from request body
+        message=request.message,  # Updated to match new field name
+        user_id=request.user_id   # Updated to match new field name
     )
-    return ChatResponse(respuesta=response_text, usuario_id=request.usuario_id, json_data=json_data) # Include json_data in the response
+    return ChatResponse(anser=response_text, user_id=request.user_id, json_data=json_data) # Updated to match new field name

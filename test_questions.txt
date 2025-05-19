@@ -1,6 +1,6 @@
 # WORKING
-# how many orders
-# how many outbound orders
+how many orders
+how many outbound orders
 # How many inbound orders?
 # How many inbounds and outbounds?
 # How many orders are there by warehouse?
@@ -16,7 +16,7 @@
 # How many outbound orders by order type?
 # How many orders I have in 2024?
 # How many orders I have by year and inbound or outbound?
-# Could you break down the orders by year, inbound/outbound and order class please?
+Could you break down the orders by year, inbound/outbound and order class please?
 
 # FAILING
 
