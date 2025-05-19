@@ -1,8 +1,15 @@
 import requests
 import os
+import sys
 from dotenv import load_dotenv
 
-API_URL = "http://localhost:8080/api/v1/chat/"  # Cambia si tu API corre en otro host/puerto
+# Determine environment (dev or prod) from command line argument
+ENV = sys.argv[1] if len(sys.argv) > 1 else "dev"
+if ENV == "prod":
+    API_URL = "https://fastapi-chat-microservice.onrender.com/api/v1/chat/"
+else:
+    API_URL = "http://localhost:8080/api/v1/chat/"
+
 USUARIO_ID = "test_user"  # Cambia si es necesario
 
 # Cargar variables de entorno desde .env
