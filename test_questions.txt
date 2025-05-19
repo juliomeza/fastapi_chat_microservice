@@ -14,9 +14,9 @@
 #Please break down the orders by type
 #Could you break down orders by warehouse and order type?
 #How many outbound orders by order type?
-
-How many orders I have in 2024?
-How many orders I have by year and inbound or outbound?
+#How many orders I have in 2024?
+#How many orders I have by year and inbound or outbound?
+Could you break down the orders by year, inbound/outbound and order class please?
 
 #FAILING
 
