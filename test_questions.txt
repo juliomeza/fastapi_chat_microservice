@@ -1,0 +1,6 @@
+#how many orders
+#how many orders?
+#Cuantas ordenes de Inbound
+Could you break down the orders by inbound/outbound?
+How many outbound orders by order type?
+Cuantas ordenes hay por warehouse
