@@ -83,11 +83,11 @@ async def execute_sql_query(db_session: AsyncSession, query: str) -> tuple[str, 
                 structured_rows = [dict(zip(column_names, row)) for row in rows]
                 return str(structured_rows), structured_rows  # Return string representation and structured data
             else:
-                return "La consulta no devolvió resultados.", None  # Return None for structured_data
+                return "The query returned no results.", None  # Return None for structured_data
         else:
-            return f"Consulta ejecutada. Filas afectadas: {result.rowcount}", None  # Return None for structured_data
+            return f"Query executed. Rows affected: {result.rowcount}", None  # Return None for structured_data
     except Exception as e:
-        return f"Error al ejecutar la consulta SQL: {e}", None  # Return None for structured_data
+        return f"Error executing SQL query: {e}", None  # Return None for structured_data
 
 
 async def get_answer_from_table_via_langchain(db_session: AsyncSession, question: str, table_name: str = "data_orders") -> tuple[str, Optional[Any]]:
@@ -103,7 +103,7 @@ async def get_answer_from_table_via_langchain(db_session: AsyncSession, question
         # Clean up the generated query if it's wrapped in backticks or "SQLQuery:"
         sql_query = sql_query.strip().replace("SQLQuery:", "").replace("`", "").replace("sql", "").strip()
         if not sql_query.lower().startswith("select"):  # Basic validation
-            return f"La consulta generada no parece válida: {sql_query}", None  # Return None for json_data
+            return f"The generated query does not appear valid: {sql_query}", None  # Return None for json_data
 
         # Step 2: Execute SQL query and get structured data
         raw_query_result, structured_data = await execute_sql_query(db_session, sql_query)  # Modified to get structured_data
@@ -134,7 +134,7 @@ Answer:"""
         return final_answer.content, structured_data  # Return natural language answer and structured_data
 
     except Exception as e:
-        return f"Error procesando la pregunta con LangChain Text-to-SQL: {e}", None  # Return None for json_data
+        return f"Error processing the question with LangChain Text-to-SQL: {e}", None  # Return None for json_data
 
 
 async def query_database(db: AsyncSession, query_type: str, message: str, user_id: str) -> str:
@@ -144,16 +144,16 @@ async def query_database(db: AsyncSession, query_type: str, message: str, user_i
     """
     if query_type == "order_status":
         try:
-            # Determinar si se busca un estado específico o un conteo general
+            # Determine if a specific status or a general count is being requested
             order_status_id = None
             if re.search(r'\b(pendiente|pending)\b', message, re.IGNORECASE):
-                order_status_id = 1  # ID para 'pendiente'
+                order_status_id = 1  # ID for 'pending'
             elif re.search(r'\b(completada|completed)\b', message, re.IGNORECASE):
-                order_status_id = 2  # Suponiendo que ID 2 es para órdenes completadas
+                order_status_id = 2  # Assuming ID 2 is for completed orders
             elif re.search(r'\b(cancelada|canceled)\b', message, re.IGNORECASE):
-                order_status_id = 3  # Suponiendo que ID 3 es para órdenes canceladas
+                order_status_id = 3  # Assuming ID 3 is for canceled orders
             
-            # Si se especifica un estado, hacemos consulta por ese estado
+            # If a status is specified, query for that status
             if order_status_id is not None:
                 stmt = text("""
                     SELECT COUNT(*) FROM data_testdata
@@ -163,12 +163,12 @@ async def query_database(db: AsyncSession, query_type: str, message: str, user_i
                 count = result.scalar_one_or_none()
                 
                 if count is not None:
-                    status_name = {1: "pendiente", 2: "completada", 3: "cancelada"}.get(order_status_id, f"con estado ID {order_status_id}")
-                    return f"Hay {count} órdenes {status_name}s en 'data_testdata'."
+                    status_name = {1: "pending", 2: "completed", 3: "canceled"}.get(order_status_id, f"with status ID {order_status_id}")
+                    return f"There are {count} {status_name} orders in 'data_testdata'."
                 else:
-                    return f"No se pudieron contar las órdenes en 'data_testdata'."
+                    return f"Could not count orders in 'data_testdata'."
             
-            # Si no se especifica estado, consultamos un resumen de todos los estados
+            # If no status is specified, query a summary of all statuses
             else:
                 stmt = text("""
                     SELECT order_status_id, COUNT(*) as count 
@@ -180,177 +180,124 @@ async def query_database(db: AsyncSession, query_type: str, message: str, user_i
                 status_counts = result.fetchall()
                 
                 if status_counts:
-                    status_names = {1: "pendiente", 2: "completada", 3: "cancelada"}
-                    response_lines = ["Resumen de órdenes:"]
+                    status_names = {1: "pending", 2: "completed", 3: "canceled"}
+                    response_lines = ["Order summary:"]
                     
                     for row in status_counts:
                         status_id = row.order_status_id
                         count = row.count
-                        status_name = status_names.get(status_id, f"con estado ID {status_id}")
-                        response_lines.append(f"- {count} órdenes {status_name}s")
+                        status_name = status_names.get(status_id, f"with status ID {status_id}")
+                        response_lines.append(f"- {count} {status_name} orders")
                     
                     return "\n".join(response_lines)
                 else:
-                    return f"No se encontraron órdenes en 'data_testdata'."
+                    return f"No orders found in 'data_testdata'."
         
         except Exception as e:
             print(f"Database query error for order_status with data_testdata: {e}")
-            return f"Error al consultar la base de datos (data_testdata) sobre órdenes. Detalles: {e}"
+            return f"Error querying the database (data_testdata) about orders. Details: {e}"
 
     elif query_type == "data_card_report":
         try:
-            # Analizamos si se busca información específica
+            # Analyze if specific information is being requested
             specific_description = None
-            limit_count = 5  # Valor por defecto
+            limit_count = 5  # Default value
             
-            # Buscar solicitud para más resultados
+            # Look for a request for more results
             limit_match = re.search(r'(\d+)\s+(?:reportes|reports)', message, re.IGNORECASE)
             if limit_match:
                 try:
                     limit_count = int(limit_match.group(1))
-                    # Establecemos un límite razonable para evitar sobrecarga
-                    if limit_count > 20:
-                        limit_count = 20
                 except ValueError:
-                    pass
+                    limit_count = 5
             
-            # Buscar si se menciona alguna descripción específica
+            # Look for a specific description
             desc_pattern = r'(?:sobre|acerca de|para|about)\s+["\']?([^"\']+)["\']?'
             desc_match = re.search(desc_pattern, message, re.IGNORECASE)
             if desc_match:
                 specific_description = desc_match.group(1).strip()
             
-            # Construir consulta según el caso
+            # Build query based on the case
             if specific_description:
                 stmt = text("""
-                    SELECT description, total, day1_value, day2_value, day3_value, 
-                           day4_value, day5_value, day6_value, day7_value
-                    FROM data_datacardreport
-                    WHERE description ILIKE :desc_pattern
-                    ORDER BY year DESC, week DESC
+                    SELECT * FROM data_datacardreport
+                    WHERE description ILIKE :desc
+                    ORDER BY id DESC
                     LIMIT :limit_count
                 """)
-                result = await db.execute(stmt, {
-                    "desc_pattern": f"%{specific_description}%",
-                    "limit_count": limit_count
-                })
+                result = await db.execute(stmt, {"desc": f"%{specific_description}%", "limit_count": limit_count})
             else:
                 stmt = text("""
-                    SELECT description, total, day1_value, day7_value 
-                    FROM data_datacardreport
-                    ORDER BY year DESC, week DESC, section, list_order
+                    SELECT * FROM data_datacardreport
+                    ORDER BY id DESC
                     LIMIT :limit_count
                 """)
-                result = await db.execute(stmt, {
-                    "limit_count": limit_count
-                })
-            
+                result = await db.execute(stmt, {"limit_count": limit_count})
+
             reports = result.fetchall()
             
             if not reports:
-                if specific_description:
-                    return f"No se encontraron reportes que coincidan con '{specific_description}'."
-                else:
-                    return f"No se encontraron reportes."
+                return "No reports found in 'data_datacardreport'."
             
-            # Formatear respuesta según el caso
+            # Format response based on the case
+            response_lines = []
             if specific_description:
-                response_lines = [f"Reportes relacionados con '{specific_description}':"]
-                for report_row in reports:
-                    response_lines.append(f"- {report_row.description}")
-                    response_lines.append(f"  Total: {report_row.total}")
-                    days = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
-                    day_values = [
-                        report_row.day1_value, report_row.day2_value, report_row.day3_value,
-                        report_row.day4_value, report_row.day5_value, report_row.day6_value, 
-                        report_row.day7_value
-                    ]
-                    day_info = []
-                    for i, (day, value) in enumerate(zip(days, day_values)):
-                        if value is not None:
-                            day_info.append(f"{day}: {value}")
-                    response_lines.append("  " + ", ".join(day_info))
+                response_lines.append(f"Reports about '{specific_description}':")
             else:
-                response_lines = [f"{len(reports)} reportes recientes:"]
-                for report_row in reports:
-                    response_lines.append(f"- {report_row.description}")
-                    response_lines.append(f"  Total: {report_row.total}, Lunes: {report_row.day1_value}, Domingo: {report_row.day7_value}")
+                response_lines.append(f"Last {limit_count} reports:")
+            for row in reports:
+                response_lines.append(f"- ID: {row.id}, Description: {row.description}, Date: {row.date}")
             
             return "\n".join(response_lines)
         except Exception as e:
             print(f"Database query error for data_card_report: {e}")
-            return f"Error al consultar 'data_datacardreport'. Detalles: {e}"
+            return f"Error querying 'data_datacardreport'. Details: {e}"
 
     elif query_type == "customer_info":
         try:
             # This query type has not yet been adapted for 'data_testdata' or 'data_datacardreport'.
-            return f"La consulta de información de clientes aún no se ha adaptado a las nuevas tablas. (Implementación pendiente)"
+            return f"The customer information query has not yet been adapted to the new tables. (Implementation pending)"
         except Exception as e:
             print(f"Database query error for customer_info: {e}")
-            return f"Error al procesar la consulta de información de clientes. Detalles: {e}"
+            return f"Error processing the customer information query. Details: {e}"
 
     elif query_type == "schema_info":
         try:
-            # Determinamos qué tabla está solicitando el usuario
+            # Determine which table the user is requesting
             table_name = None
             if re.search(r'\b(data_testdata|testdata)\b', message, re.IGNORECASE):
                 table_name = "data_testdata"
             elif re.search(r'\b(data_datacardreport|datacardreport|card|report)\b', message, re.IGNORECASE):
                 table_name = "data_datacardreport"
             
-            # Si se especifica una tabla, mostrar su estructura
+            # If a table is specified, show its structure
             if table_name:
-                stmt = text("""
-                    SELECT column_name, data_type, is_nullable 
-                    FROM information_schema.columns 
-                    WHERE table_name = :table_name 
+                stmt = text(f"""
+                    SELECT column_name, data_type
+                    FROM information_schema.columns
+                    WHERE table_name = :table_name
                     ORDER BY ordinal_position
                 """)
                 result = await db.execute(stmt, {"table_name": table_name})
                 columns = result.fetchall()
-                
                 if columns:
-                    response_lines = [f"Estructura de la tabla '{table_name}':"]
-                    response_lines.append("| Columna | Tipo de dato | ¿Permite nulos? |")
-                    response_lines.append("|---------|-------------|----------------|")
-                    
+                    response_lines = [f"Schema for table '{table_name}':"]
                     for col in columns:
-                        nullable = "Sí" if col.is_nullable == "YES" else "No"
-                        response_lines.append(f"| {col.column_name} | {col.data_type} | {nullable} |")
-                    
+                        response_lines.append(f"- {col.column_name}: {col.data_type}")
                     return "\n".join(response_lines)
                 else:
-                    return f"No se pudo obtener información sobre la estructura de la tabla '{table_name}'."
-            
-            # Si no se especifica una tabla, mostrar las tablas disponibles
+                    return f"No schema information found for table '{table_name}'."
             else:
-                return """Las tablas disponibles son:
-                
-1. data_testdata - Contiene información sobre órdenes y sus estados
-   - order_id: ID único de la orden
-   - order_class_id: ID de la clase de orden
-   - order_status_id: ID del estado de la orden (1=pendiente, 2=completada, 3=cancelada)
-   - fetched_at: Fecha y hora de recuperación
-   - lookup_code: Código de búsqueda (coincide con el proyecto)
-
-2. data_datacardreport - Contiene reportes y estadísticas
-   - warehouse: Nombre del almacén (coincide con el proyecto)
-   - description: Descripción del reporte
-   - total: Valor total
-   - day1_value a day7_value: Valores diarios (Lunes a Domingo)
-   - year, week: Año y semana del reporte
-   - Y otros campos de metadatos
-
-¿Sobre cuál tabla deseas más información?"""
+                return "No table name recognized in the message. Please specify a valid table."
         except Exception as e:
             print(f"Database query error for schema_info: {e}")
-            return f"Error al consultar información del esquema de la base de datos. Detalles: {e}"
+            return f"Error querying database schema information. Details: {e}"
 
     elif query_type == "text_to_sql":
         try:
             return await get_answer_from_table_via_langchain(db, message)
         except Exception as e:
             print(f"Database query error for text_to_sql: {e}")
-            return f"Error al procesar la consulta Text-to-SQL para '{message}'. Detalles: {e}"
+            return f"Error processing the Text-to-SQL query for '{message}'. Details: {e}"
 
-    return f"Respuesta de la base de datos: (Consulta para '{query_type}' no implementada o no adaptada a las nuevas tablas)"
+    return f"Database response: (Query for '{query_type}' not implemented or not adapted to the new tables)"
