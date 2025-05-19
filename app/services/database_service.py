@@ -27,7 +27,7 @@ Only use the following tables:
 
 Question: {input}"""
 
-# Revised PROMPT_TEMPLATE
+# Revised PROMPT_TEMPLATE with explicit breakdown example and escaped curly braces
 PROMPT_TEMPLATE = """Given an input question, first create a syntactically correct query for a PostgreSQL database to run, then look at the results of the query and return the answer.
 Use the following format:
 
@@ -40,6 +40,25 @@ Only use the following tables (schema details might be limited by {top_k} if app
 {table_info}
 
 If someone asks for the table "orders", they really mean the table "data_orders".
+
+# EXAMPLES
+# Example 1: Breakdown by order or shipment class type
+Question: How many outbound orders by order or shipment class type?
+SQLQuery: SELECT "order or shipment class type", COUNT(*) as count FROM data_orders WHERE direction = 'outbound' GROUP BY "order or shipment class type"
+SQLResult: [{{"order or shipment class type": "Type A", "count": 100}}, {{"order or shipment class type": "Type B", "count": 200}}]
+Answer: There are 100 outbound orders of Type A and 200 outbound orders of Type B.
+
+# Example 2: Breakdown by warehouse and order or shipment class type
+Question: Could you break down the outbound orders by warehouse and order or shipment class type?
+SQLQuery: SELECT warehouse, "order or shipment class type", COUNT(*) as count FROM data_orders WHERE direction = 'outbound' GROUP BY warehouse, "order or shipment class type"
+SQLResult: [{{"warehouse": "WH1", "order or shipment class type": "Type A", "count": 50}}, {{"warehouse": "WH2", "order or shipment class type": "Type B", "count": 75}}]
+Answer: There are 50 outbound orders of Type A in warehouse WH1 and 75 outbound orders of Type B in warehouse WH2.
+
+# Example 3: Simple count
+Question: How many orders are there?
+SQLQuery: SELECT COUNT(*) FROM data_orders
+SQLResult: [{{"count": 1000}}]
+Answer: There are 1000 orders in total.
 
 Question: {input}"""
 

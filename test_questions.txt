@@ -1,13 +1,18 @@
 #WORKING
-#how many orders
-#how many orders?
-#Cuantas ordenes de Inbound
-#Could you break down the orders by inbound/outbound?
-#Please break down the orders by class
-#Please break down the orders by type
-#Could you break down orders by warehouse and order type?
+how many orders
+how many outbound orders
+How many inbound orders?
+How many inbounds and outbounds?
+How many orders are there by warehouse?
+How many inbounds by warehouse?
+How many outbounds by warehouse?
+Could you break down the outbound orders by warehouse and class?
+Could you break down the orders by inbound/outbound?
+Please break down the orders by class
+Please break down the orders by order class
+Please break down the orders by shipment class
+Please break down the orders by type
+Could you break down orders by warehouse and order type?
 
 #FAILING
-#How many outbound orders by order type?
-Cuantas ordenes hay por warehouse
-How many orders are there by warehouse?
+How many outbound orders by order type?
