@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -5,9 +6,18 @@ from app.api.v1.api import api_router
 from app.core.config import settings
 from app.services.vector_store_service import initialize_vector_store_if_needed
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    print("Application startup: Initializing database connection...")
+    await initialize_vector_store_if_needed()
+    print("Application startup complete.")
+    yield
+    # Aquí podrías agregar lógica de shutdown si la necesitas
+
 app = FastAPI(
     title="Chat Microservice",
-    openapi_url=f"{settings.API_V1_STR}/openapi.json"
+    openapi_url=f"{settings.API_V1_STR}/openapi.json",
+    lifespan=lifespan
 )
 
 # CORS Middleware configuration
@@ -25,15 +35,6 @@ app.add_middleware(
     allow_methods=["*"], # Allows all methods (GET, POST, etc.)
     allow_headers=["*"], # Allows all headers
 )
-
-@app.on_event("startup")
-async def startup_event():
-    # This is a good place for initial checks or setup
-    print("Application startup: Initializing database connection...")
-    # You could add a database health check here if needed
-    # Initialize the vector store with sample data if it's not already populated
-    await initialize_vector_store_if_needed()
-    print("Application startup complete.")
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
