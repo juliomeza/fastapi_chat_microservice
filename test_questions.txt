@@ -16,6 +16,7 @@
 #How many outbound orders by order type?
 
 How many orders I have in 2024?
+How many orders I have by year and inbound or outbound?
 
 #FAILING
 

@@ -10,13 +10,13 @@ if ENV == "prod":
 else:
     API_URL = "http://localhost:8080/api/v1/chat/"
 
-USUARIO_ID = "test_user"  # Cambia si es necesario
+USER_ID = "test_user"  # Change if necessary
 
-# Cargar variables de entorno desde .env
+# Load environment variables from .env
 load_dotenv()
-TOKEN = os.getenv("TEST_JWT_TOKEN", "AQUI_TU_TOKEN_JWT")
+TOKEN = os.getenv("TEST_JWT_TOKEN", "YOUR_JWT_TOKEN_HERE")
 
-# Obtener la ruta absoluta del archivo test_questions.txt (siempre desde la raíz del proyecto)
+# Get the absolute path of the test_questions.txt file (always from the project root)
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 QUESTIONS_FILE = os.path.join(BASE_DIR, "test_questions.txt")
 
@@ -31,12 +31,12 @@ headers = {
 for idx, question in enumerate(questions, 1):
     payload = {
         "mensaje": question,
-        "usuario_id": USUARIO_ID
+        "usuario_id": USER_ID
     }
     response = requests.post(API_URL, json=payload, headers=headers)
-    print(f"\nPregunta {idx}: {question}")
+    print(f"\nQuestion {idx}: {question}")
     print(f"Status: {response.status_code}")
     try:
-        print("Respuesta:", response.json())
+        print("Response:", response.json())
     except Exception:
-        print("Respuesta no es JSON:", response.text)
+        print("Response is not JSON:", response.text)
