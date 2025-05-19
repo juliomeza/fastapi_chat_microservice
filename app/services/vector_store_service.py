@@ -33,18 +33,18 @@ def get_vector_store() -> PGVector:
 
 def clear_vector_store():
     """
-    Elimina todos los vectores de la colección definida en PGVector.
-    Útil para limpiar el vector store antes de una nueva ingestión.
+    Deletes all vectors from the defined collection in PGVector.
+    Useful for clearing the vector store before a new ingestion.
     """
     store = get_vector_store()
-    # PGVector no expone un método directo para borrar todos los documentos,
-    # pero puedes usar el método delete_collection si quieres eliminar toda la colección.
-    # Luego, se puede volver a crear automáticamente al agregar nuevos textos.
+    # PGVector does not expose a direct method to delete all documents,
+    # but you can use the delete_collection method to remove the entire collection.
+    # It can be recreated automatically when adding new texts.
     try:
         store.delete_collection()
-        print(f"Colección '{COLLECTION_NAME}' eliminada correctamente.")
+        print(f"Collection '{COLLECTION_NAME}' deleted successfully.")
     except Exception as e:
-        print(f"Error al eliminar la colección: {e}")
+        print(f"Error deleting the collection: {e}")
 
 async def add_texts_to_vector_store(texts: list[str], metadatas: list[dict] | None = None):
     """
@@ -93,22 +93,22 @@ async def get_rag_context(query: str, k: int = 3, filter: dict | None = None) ->
     context_parts = [doc_info["page_content"] for doc_info in relevant_docs_with_scores]
     context = "\n\n---\n\n".join(context_parts)
 
-    # LOG: Muestra el contexto que se le pasa al modelo
-    print("\n[DEBUG] Contexto enviado al modelo para RAG:")
+    # LOG: Shows the context sent to the model
+    print("\n[DEBUG] Context sent to the model for RAG:")
     print(context)
-    print("\n[DEBUG] --- Fin del contexto ---\n")
+    print("\n[DEBUG] --- End of context ---\n")
 
     return context
 
 async def ingest_table_to_vector_store(table_name: str, db: AsyncSession, project: str = None):
     """
-    Ingresa todas las filas de la tabla data_orders al vector store, con metadatos de tabla y proyecto.
-    Solo se permite la tabla data_orders.
+    Ingests all rows from the data_orders table into the vector store, with table and project metadata.
+    Only the data_orders table is allowed.
     """
     if table_name != "data_orders":
-        print(f"Solo se permite la tabla 'data_orders'. Se ignoró: {table_name}")
+        print(f"Only the 'data_orders' table is allowed. Ignored: {table_name}")
         return
-    # Obtén todas las filas de la tabla
+    # Get all rows from the table
     query = text(f'SELECT * FROM {table_name}')
     result = await db.execute(query)
     rows = result.fetchall()
@@ -119,7 +119,7 @@ async def ingest_table_to_vector_store(table_name: str, db: AsyncSession, projec
     metadatas = []
     for row in rows:
         row_dict = dict(row._mapping)
-        # Construye un texto simple y claro para cada orden
+        # Build a simple and clear text for each order
         row_text = ", ".join([f"{k}: {v}" for k, v in row_dict.items()])
         texts.append(row_text)
         meta = {"source_table": table_name}
