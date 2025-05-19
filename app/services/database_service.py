@@ -156,7 +156,7 @@ async def query_database(db: AsyncSession, query_type: str, message: str, user_i
             # If a status is specified, query for that status
             if order_status_id is not None:
                 stmt = text("""
-                    SELECT COUNT(*) FROM data_testdata
+                    SELECT COUNT(*) FROM data_orders
                     WHERE order_status_id = :order_status_id
                 """)
                 result = await db.execute(stmt, {"order_status_id": order_status_id})
@@ -164,15 +164,15 @@ async def query_database(db: AsyncSession, query_type: str, message: str, user_i
                 
                 if count is not None:
                     status_name = {1: "pending", 2: "completed", 3: "canceled"}.get(order_status_id, f"with status ID {order_status_id}")
-                    return f"There are {count} {status_name} orders in 'data_testdata'."
+                    return f"There are {count} {status_name} orders in 'data_orders'."
                 else:
-                    return f"Could not count orders in 'data_testdata'."
+                    return f"Could not count orders in 'data_orders'."
             
             # If no status is specified, query a summary of all statuses
             else:
                 stmt = text("""
                     SELECT order_status_id, COUNT(*) as count 
-                    FROM data_testdata
+                    FROM data_orders
                     GROUP BY order_status_id
                     ORDER BY order_status_id
                 """)
@@ -191,71 +191,15 @@ async def query_database(db: AsyncSession, query_type: str, message: str, user_i
                     
                     return "\n".join(response_lines)
                 else:
-                    return f"No orders found in 'data_testdata'."
+                    return f"No orders found in 'data_orders'."
         
         except Exception as e:
-            print(f"Database query error for order_status with data_testdata: {e}")
-            return f"Error querying the database (data_testdata) about orders. Details: {e}"
-
-    elif query_type == "data_card_report":
-        try:
-            # Analyze if specific information is being requested
-            specific_description = None
-            limit_count = 5  # Default value
-            
-            # Look for a request for more results
-            limit_match = re.search(r'(\d+)\s+(?:reportes|reports)', message, re.IGNORECASE)
-            if limit_match:
-                try:
-                    limit_count = int(limit_match.group(1))
-                except ValueError:
-                    limit_count = 5
-            
-            # Look for a specific description
-            desc_pattern = r'(?:sobre|acerca de|para|about)\s+["\']?([^"\']+)["\']?'
-            desc_match = re.search(desc_pattern, message, re.IGNORECASE)
-            if desc_match:
-                specific_description = desc_match.group(1).strip()
-            
-            # Build query based on the case
-            if specific_description:
-                stmt = text("""
-                    SELECT * FROM data_datacardreport
-                    WHERE description ILIKE :desc
-                    ORDER BY id DESC
-                    LIMIT :limit_count
-                """)
-                result = await db.execute(stmt, {"desc": f"%{specific_description}%", "limit_count": limit_count})
-            else:
-                stmt = text("""
-                    SELECT * FROM data_datacardreport
-                    ORDER BY id DESC
-                    LIMIT :limit_count
-                """)
-                result = await db.execute(stmt, {"limit_count": limit_count})
-
-            reports = result.fetchall()
-            
-            if not reports:
-                return "No reports found in 'data_datacardreport'."
-            
-            # Format response based on the case
-            response_lines = []
-            if specific_description:
-                response_lines.append(f"Reports about '{specific_description}':")
-            else:
-                response_lines.append(f"Last {limit_count} reports:")
-            for row in reports:
-                response_lines.append(f"- ID: {row.id}, Description: {row.description}, Date: {row.date}")
-            
-            return "\n".join(response_lines)
-        except Exception as e:
-            print(f"Database query error for data_card_report: {e}")
-            return f"Error querying 'data_datacardreport'. Details: {e}"
+            print(f"Database query error for order_status with data_orders: {e}")
+            return f"Error querying the database (data_orders) about orders. Details: {e}"
 
     elif query_type == "customer_info":
         try:
-            # This query type has not yet been adapted for 'data_testdata' or 'data_datacardreport'.
+            # This query type has not yet been adapted for 'data_orders'.
             return f"The customer information query has not yet been adapted to the new tables. (Implementation pending)"
         except Exception as e:
             print(f"Database query error for customer_info: {e}")
@@ -265,10 +209,8 @@ async def query_database(db: AsyncSession, query_type: str, message: str, user_i
         try:
             # Determine which table the user is requesting
             table_name = None
-            if re.search(r'\b(data_testdata|testdata)\b', message, re.IGNORECASE):
-                table_name = "data_testdata"
-            elif re.search(r'\b(data_datacardreport|datacardreport|card|report)\b', message, re.IGNORECASE):
-                table_name = "data_datacardreport"
+            if re.search(r'\b(data_orders|orders)\b', message, re.IGNORECASE):
+                table_name = "data_orders"
             
             # If a table is specified, show its structure
             if table_name:
