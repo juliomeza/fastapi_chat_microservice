@@ -2,244 +2,167 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import text
 import re
 import json  # Add json import
-from typing import Optional, Any  # Import Optional and Any
+from typing import Optional, Any, Tuple  # Import Optional, Any, and Tuple
 # LangChain imports for Text-to-SQL
 from langchain_openai import ChatOpenAI
 from langchain_community.utilities.sql_database import SQLDatabase
 from langchain.chains import create_sql_query_chain
 from langchain.prompts import PromptTemplate
 from app.core.config import settings
-from app.db.session import engine  # Assuming engine is defined here for SQLDatabase
+from decimal import Decimal
+import datetime # Import datetime
 
-# Initialize LLM and SQLDatabase (outside of request functions for efficiency)
-# Make sure to use the synchronous engine for SQLDatabase utility
-# For LangChain's SQLDatabase utility, we need a synchronous SQLAlchemy engine.
-# We'll create one based on the DATABASE_URL.
-# Note: The actual query execution will still use the async session.
+# Assuming engine is available for sync usage if needed, but we primarily use async session
+# For LangChain\'s SQLDatabase utility, a synchronous SQLAlchemy engine is typically used.
 sync_db_url = settings.DATABASE_URL.replace("postgresql+asyncpg", "postgresql")
-db_langchain = SQLDatabase.from_uri(sync_db_url, include_tables=['data_orders'], sample_rows_in_table_info=3)
+# Initialize SQLDatabase for LangChain, focused on data_orders table
+# Providing sample rows helps the LLM understand the data structure.
+db_langchain = SQLDatabase.from_uri(
+    sync_db_url,
+    include_tables=['data_orders'],
+    sample_rows_in_table_info=3  # Number of sample rows to include in table info
+)
+
+# Initialize LLM
 llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0, openai_api_key=settings.OPENAI_API_KEY)
 
-# Custom prompt for SQL query generation if needed
-SQL_PROMPT_SUFFIX = """
-Only use the following tables:
+# Prompt template for generating SQL queries.
+# The LLM is shown the full thinking process (Query, Result, Answer)
+# to better generate the SQL query, even if this chain only produces the query.
+# Column names are quoted if they contain spaces or special characters.
+# Adjusted example to use "inbound_or_outbound" and LOWER() for case-insensitivity.
+SQL_QUERY_PROMPT_TEMPLATE = """Given an input question, create a syntactically correct query for a PostgreSQL database to run.
+Only use the following table (schema details might be limited by {top_k} if applicable):
 {table_info}
 
-Question: {input}"""
-
-# Revised PROMPT_TEMPLATE with explicit breakdown example and escaped curly braces
-PROMPT_TEMPLATE = """Given an input question, first create a syntactically correct query for a PostgreSQL database to run, then look at the results of the query and return the answer.
-Use the following format:
-
-Question: "Question here"
-SQLQuery: "SQL Query to run"
-SQLResult: "Result of the SQLQuery"
-Answer: "Final answer here"
-
-Only use the following tables (schema details might be limited by {top_k} if applicable):
-{table_info}
-
-If someone asks for the table "orders", they really mean the table "data_orders".
+If someone asks for "orders", they mean the "data_orders" table.
+Pay close attention to the column names and types. Quote column names if they contain spaces or are keywords.
+For filtering on "inbound_or_outbound", use values like 'Inbound' or 'Outbound'. If comparing with lowercase, use the LOWER() function.
 
 # EXAMPLES
 # Example 1: Breakdown by order or shipment class type
 Question: How many outbound orders by order or shipment class type?
-SQLQuery: SELECT "order or shipment class type", COUNT(*) as count FROM data_orders WHERE direction = 'outbound' GROUP BY "order or shipment class type"
-SQLResult: [{{"order or shipment class type": "Type A", "count": 100}}, {{"order or shipment class type": "Type B", "count": 200}}]
-Answer: There are 100 outbound orders of Type A and 200 outbound orders of Type B.
+SQLQuery: SELECT "order_or_shipment_class_type", COUNT(*) as count FROM data_orders WHERE LOWER("inbound_or_outbound") = 'outbound' GROUP BY "order_or_shipment_class_type"
 
 # Example 2: Breakdown by warehouse and order or shipment class type
 Question: Could you break down the outbound orders by warehouse and order or shipment class type?
-SQLQuery: SELECT warehouse, "order or shipment class type", COUNT(*) as count FROM data_orders WHERE direction = 'outbound' GROUP BY warehouse, "order or shipment class type"
-SQLResult: [{{"warehouse": "WH1", "order or shipment class type": "Type A", "count": 50}}, {{"warehouse": "WH2", "order or shipment class type": "Type B", "count": 75}}]
-Answer: There are 50 outbound orders of Type A in warehouse WH1 and 75 outbound orders of Type B in warehouse WH2.
+SQLQuery: SELECT warehouse, "order_or_shipment_class_type", COUNT(*) as count FROM data_orders WHERE LOWER("inbound_or_outbound") = 'outbound' GROUP BY warehouse, "order_or_shipment_class_type"
 
-# Example 3: Simple count
-Question: How many orders are there?
-SQLQuery: SELECT COUNT(*) FROM data_orders
-SQLResult: [{{"count": 1000}}]
-Answer: There are 1000 orders in total.
+# Example 3: Simple count for a specific customer
+Question: How many orders are there for customer "Abbott Nutrition"?
+SQLQuery: SELECT COUNT(*) FROM data_orders WHERE customer = 'Abbott Nutrition'
 
-Question: {input}"""
+Question: {input}
+SQLQuery:
+"""
 
-# Create the SQL query chain with revised input_variables
-custom_prompt = PromptTemplate(
-    input_variables=["input", "table_info", "top_k"],  # Must match the strict check
-    template=PROMPT_TEMPLATE
+custom_sql_query_prompt = PromptTemplate(
+    input_variables=["input", "table_info", "top_k"],  # Add "top_k" here
+    template=SQL_QUERY_PROMPT_TEMPLATE
 )
-generate_query_chain = create_sql_query_chain(llm, db_langchain, prompt=custom_prompt)
 
+# Create the chain for generating SQL queries
+generate_query_chain = create_sql_query_chain(llm, db_langchain, prompt=custom_sql_query_prompt)
 
-async def execute_sql_query(db_session: AsyncSession, query: str) -> tuple[str, Optional[Any]]:
+async def execute_sql_query(db_session: AsyncSession, query: str) -> Tuple[str, Optional[Any]]:
     """
-    Executes a given SQL query using the async session and returns the result as a string and structured JSON data.
+    Executes a given SQL query using the async session.
+    Returns the result as a string (for LLM consumption) and structured JSON data (list of dicts).
     """
     try:
         result = await db_session.execute(text(query))
-        if result.returns_rows:
-            rows = result.fetchall()
-            if rows:
-                column_names = result.keys()
-                structured_rows = [dict(zip(column_names, row)) for row in rows]
-                return str(structured_rows), structured_rows  # Return string representation and structured data
-            else:
-                return "The query returned no results.", None  # Return None for structured_data
-        else:
-            return f"Query executed. Rows affected: {result.rowcount}", None  # Return None for structured_data
+        rows = result.mappings().all()  # Returns a list of RowMapping (dict-like)
+        
+        # Convert RowMapping objects to plain dicts for JSON serialization and handle Decimal types
+        json_results = []
+        for row_mapping in rows:
+            processed_row = {}
+            for key, value in dict(row_mapping).items():
+                if isinstance(value, Decimal):
+                    processed_row[key] = str(value)  # Convert Decimal to string
+                elif isinstance(value, (datetime.date, datetime.datetime)): # Handle date/datetime
+                    processed_row[key] = value.isoformat() # Convert date/datetime to ISO string
+                else:
+                    processed_row[key] = value
+            json_results.append(processed_row)
+
+        if not json_results:
+            return "No results found.", [] # Return empty list for json_data
+
+        # For the LLM, a string representation might be more useful if it's too long.
+        # Let's provide a compact string version.
+        # If results are extensive, consider summarizing or truncating raw_results_str.
+        raw_results_str = json.dumps(json_results) # Compact JSON for LLM
+        
+        return raw_results_str, json_results
     except Exception as e:
-        return f"Error executing SQL query: {e}", None  # Return None for structured_data
+        # Log the error for debugging on the server
+        print(f"Error executing SQL query: {query}. Error: {e}")
+        # Raise the exception to be handled by the caller, including the query in the message
+        raise Exception(f"Error executing SQL query: {str(e)}. Query: {query}")
 
 
-async def get_answer_from_table_via_langchain(db_session: AsyncSession, question: str, table_name: str = "data_orders") -> tuple[str, Optional[Any]]:
+async def get_answer_from_table_via_langchain(db_session: AsyncSession, question: str, table_name: str = "data_orders") -> Tuple[str, Optional[Any]]:
     """
     Generates an SQL query from a natural language question using LangChain,
-    executes it, and returns the answer as a natural language string and structured JSON data.
-    Focuses on a specific table (e.g., data_orders).
+    executes it, and then uses an LLM to formulate a natural language answer
+    based on the query results.
+    Returns the natural language answer and structured JSON data.
     """
     try:
         # Step 1: Generate SQL query
-        sql_query = generate_query_chain.invoke({"question": question})
+        # The chain.ainvoke returns a string (the SQL query)
+        # The create_sql_query_chain will pass input, table_info, and top_k (with its default)
+        generated_sql_query = await generate_query_chain.ainvoke({"question": question})
         
-        # Clean up the generated query if it's wrapped in backticks or "SQLQuery:"
-        sql_query = sql_query.strip().replace("SQLQuery:", "").replace("`", "").replace("sql", "").strip()
-        if not sql_query.lower().startswith("select"):  # Basic validation
-            return f"The generated query does not appear valid: {sql_query}", None  # Return None for json_data
+        if not generated_sql_query or not isinstance(generated_sql_query, str):
+            raise ValueError("Failed to generate SQL query or query is not a string.")
 
-        # Step 2: Execute SQL query and get structured data
-        raw_query_result, structured_data = await execute_sql_query(db_session, sql_query)  # Modified to get structured_data
+        sql_query = generated_sql_query.strip()
+        if not sql_query: # Handle empty query string
+             return "I could not understand how to query the database for your question. Please try rephrasing.", None
 
-        # Step 3: Get a natural language answer from the query result
-        answer_prompt_template = PromptTemplate(
-            input_variables=["question", "sql_query", "sql_result"],  # Corrected: "sql_result" was "raw_query_result"
-            template="""Given the user's question, the generated SQL query, and the SQL result,
-please provide a concise, natural language answer to the user in the same language as the original question.
-Ensure the answer directly includes the specific data from the SQLResult, such as counts, names, or values, not just a generic statement that the data is available.
 
-For example, if the SQLResult shows a breakdown of order types and their counts, the answer should list these types and counts.
+        # Step 2: Execute SQL query
+        try:
+            raw_results_str, json_data = await execute_sql_query(db_session, sql_query)
+        except Exception as query_exec_e:
+            # Error during query execution (e.g., bad SQL, DB down)
+            error_message = str(query_exec_e)
+            # Ask LLM to formulate a user-friendly message about the query error
+            error_interpretation_prompt = f"""
+            The user asked: "{question}"
+            An attempt to answer this involved generating the SQL query:
+            {sql_query}
+            However, executing this query failed with the error: "{error_message}"
+            Please provide a concise, user-friendly explanation of why the information could not be retrieved.
+            If the error suggests the query was invalid, mention an issue with formulating the database request.
+            Do not repeat the SQL query or the raw error in your response to the user.
+            Response:
+            """
+            error_response = await llm.ainvoke(error_interpretation_prompt)
+            return error_response.content, None
 
-Question: {question}
-SQLQuery: {sql_query}
-SQLResult: {sql_result}
+        # Step 3: Generate natural language answer from results using LLM
+        answer_generation_prompt_text = f"""
+        Based on the user's question and the following SQL query and its result, provide a concise natural language answer.
+        If the query result is empty or does not seem to directly answer the question, state that the requested information could not be found in the '{table_name}' table or that we are still in development for other data sources.
 
-Answer:"""
-        )
-        answer_chain = answer_prompt_template | llm
-        
-        final_answer = await answer_chain.ainvoke({
-            "question": question,
-            "sql_query": sql_query,
-            "sql_result": raw_query_result  # This is the actual variable name with the result
-        })
-        
-        return final_answer.content, structured_data  # Return natural language answer and structured_data
+        User Question: "{question}"
+        SQLQuery Executed: "{sql_query}"
+        SQLResult: "{raw_results_str}"
 
+        Natural Language Answer:
+        """
+        final_answer_response = await llm.ainvoke(answer_generation_prompt_text)
+        nl_answer = final_answer_response.content.strip()
+
+        return nl_answer, json_data
+
+    except ValueError as ve: # Catch specific errors like failed query generation
+        print(f"ValueError in Langchain process: {ve}")
+        return f"I encountered an issue processing your request: {str(ve)}", None
     except Exception as e:
-        return f"Error processing the question with LangChain Text-to-SQL: {e}", None  # Return None for json_data
-
-
-async def query_database(db: AsyncSession, query_type: str, message: str, user_id: str) -> str:
-    """
-    Queries the PostgreSQL database.
-    IMPORTANT: Adapt SQL queries to your actual database schema.
-    """
-    if query_type == "order_status":
-        try:
-            # Determine if a specific status or a general count is being requested
-            order_status_id = None
-            if re.search(r'\b(pendiente|pending)\b', message, re.IGNORECASE):
-                order_status_id = 1  # ID for 'pending'
-            elif re.search(r'\b(completada|completed)\b', message, re.IGNORECASE):
-                order_status_id = 2  # Assuming ID 2 is for completed orders
-            elif re.search(r'\b(cancelada|canceled)\b', message, re.IGNORECASE):
-                order_status_id = 3  # Assuming ID 3 is for canceled orders
-            
-            # If a status is specified, query for that status
-            if order_status_id is not None:
-                stmt = text("""
-                    SELECT COUNT(*) FROM data_orders
-                    WHERE order_status_id = :order_status_id
-                """)
-                result = await db.execute(stmt, {"order_status_id": order_status_id})
-                count = result.scalar_one_or_none()
-                
-                if count is not None:
-                    status_name = {1: "pending", 2: "completed", 3: "canceled"}.get(order_status_id, f"with status ID {order_status_id}")
-                    return f"There are {count} {status_name} orders in 'data_orders'."
-                else:
-                    return f"Could not count orders in 'data_orders'."
-            
-            # If no status is specified, query a summary of all statuses
-            else:
-                stmt = text("""
-                    SELECT order_status_id, COUNT(*) as count 
-                    FROM data_orders
-                    GROUP BY order_status_id
-                    ORDER BY order_status_id
-                """)
-                result = await db.execute(stmt)
-                status_counts = result.fetchall()
-                
-                if status_counts:
-                    status_names = {1: "pending", 2: "completed", 3: "canceled"}
-                    response_lines = ["Order summary:"]
-                    
-                    for row in status_counts:
-                        status_id = row.order_status_id
-                        count = row.count
-                        status_name = status_names.get(status_id, f"with status ID {status_id}")
-                        response_lines.append(f"- {count} {status_name} orders")
-                    
-                    return "\n".join(response_lines)
-                else:
-                    return f"No orders found in 'data_orders'."
-        
-        except Exception as e:
-            print(f"Database query error for order_status with data_orders: {e}")
-            return f"Error querying the database (data_orders) about orders. Details: {e}"
-
-    elif query_type == "customer_info":
-        try:
-            # This query type has not yet been adapted for 'data_orders'.
-            return f"The customer information query has not yet been adapted to the new tables. (Implementation pending)"
-        except Exception as e:
-            print(f"Database query error for customer_info: {e}")
-            return f"Error processing the customer information query. Details: {e}"
-
-    elif query_type == "schema_info":
-        try:
-            # Determine which table the user is requesting
-            table_name = None
-            if re.search(r'\b(data_orders|orders)\b', message, re.IGNORECASE):
-                table_name = "data_orders"
-            
-            # If a table is specified, show its structure
-            if table_name:
-                stmt = text(f"""
-                    SELECT column_name, data_type
-                    FROM information_schema.columns
-                    WHERE table_name = :table_name
-                    ORDER BY ordinal_position
-                """)
-                result = await db.execute(stmt, {"table_name": table_name})
-                columns = result.fetchall()
-                if columns:
-                    response_lines = [f"Schema for table '{table_name}':"]
-                    for col in columns:
-                        response_lines.append(f"- {col.column_name}: {col.data_type}")
-                    return "\n".join(response_lines)
-                else:
-                    return f"No schema information found for table '{table_name}'."
-            else:
-                return "No table name recognized in the message. Please specify a valid table."
-        except Exception as e:
-            print(f"Database query error for schema_info: {e}")
-            return f"Error querying database schema information. Details: {e}"
-
-    elif query_type == "text_to_sql":
-        try:
-            return await get_answer_from_table_via_langchain(db, message)
-        except Exception as e:
-            print(f"Database query error for text_to_sql: {e}")
-            return f"Error processing the Text-to-SQL query for '{message}'. Details: {e}"
-
-    return f"Database response: (Query for '{query_type}' not implemented or not adapted to the new tables)"
+        # Catch-all for other unexpected errors in the Langchain process
+        print(f"Unexpected error in get_answer_from_table_via_langchain: {e}")
+        return "I am sorry, but I encountered an unexpected issue while trying to process your request. We are looking into it.", None
