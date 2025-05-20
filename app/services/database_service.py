@@ -30,27 +30,28 @@ llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0, openai_api_key=settings.O
 # The LLM is shown the full thinking process (Query, Result, Answer)
 # to better generate the SQL query, even if this chain only produces the query.
 # Column names are quoted if they contain spaces or special characters.
-# Adjusted example to use "inbound_or_outbound" and LOWER() for case-insensitivity.
+# Adjusted example to use "order_type" and LOWER() for case-insensitivity.
 SQL_QUERY_PROMPT_TEMPLATE = """Given an input question, create a syntactically correct query for a PostgreSQL database to run.
 Only use the following table (schema details might be limited by {top_k} if applicable):
 {table_info}
 
 If someone asks for "orders", they mean the "data_orders" table.
 Pay close attention to the column names and types. Quote column names if they contain spaces or are keywords.
-For filtering on "inbound_or_outbound", use values like 'Inbound' or 'Outbound'. If comparing with lowercase, use the LOWER() function.
+Column "order_type" specifies if an order is 'Inbound' or 'Outbound'. Use LOWER() for case-insensitive comparisons.
+Column "order_class" specifies the type of order (e.g., 'warehouse transfer', 'purchase order', 'sales order', 'return').
 
 # EXAMPLES
-# Example 1: Breakdown by order or shipment class type
-Question: How many outbound orders by order or shipment class type?
-SQLQuery: SELECT "order_or_shipment_class_type", COUNT(*) as count FROM data_orders WHERE LOWER("inbound_or_outbound") = 'outbound' GROUP BY "order_or_shipment_class_type"
+# Example 1: Total count of all inbound and outbound orders across all customers
+Question: How many inbounds and outbounds?
+SQLQuery: SELECT "order_type", COUNT(*) as count FROM data_orders GROUP BY "order_type" ORDER BY "order_type"
 
-# Example 2: Breakdown by warehouse and order or shipment class type
-Question: Could you break down the outbound orders by warehouse and order or shipment class type?
-SQLQuery: SELECT warehouse, "order_or_shipment_class_type", COUNT(*) as count FROM data_orders WHERE LOWER("inbound_or_outbound") = 'outbound' GROUP BY warehouse, "order_or_shipment_class_type"
+# Example 2: Total count of inbound and outbound orders for a specific customer
+Question: How many inbound and outbound orders does Abbott Nutrition have?
+SQLQuery: SELECT "order_type", COUNT(*) as count FROM data_orders WHERE customer = 'Abbott Nutrition' GROUP BY "order_type"
 
-# Example 3: Simple count for a specific customer
-Question: How many orders are there for customer "Abbott Nutrition"?
-SQLQuery: SELECT COUNT(*) FROM data_orders WHERE customer = 'Abbott Nutrition'
+# Example 3: Distribution of order classes for outbound orders
+Question: What are the different order classes for outbound orders?
+SQLQuery: SELECT "order_class", COUNT(*) as count FROM data_orders WHERE LOWER("order_type") = 'outbound' GROUP BY "order_class" ORDER BY count DESC
 
 Question: {input}
 SQLQuery:
