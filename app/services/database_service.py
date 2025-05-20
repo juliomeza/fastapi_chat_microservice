@@ -35,22 +35,28 @@ SQL_QUERY_PROMPT_TEMPLATE = """Given an input question, create a syntactically c
 Only use the following table (schema details might be limited by {top_k} if applicable):
 {table_info}
 
-If someone asks for "orders", they mean the "data_orders" table.
+Important notes about terminology:
+1. The words "order" and "shipment" are used interchangeably by users. They refer to the same concepts.
+2. If someone asks about "orders" or "shipments", they're referring to the "data_orders" table.
+
+Column definitions:
+- "order_type": Specifies if it's 'Inbound' or 'Outbound'. Users might refer to this as "shipment type" as well.
+- "order_class": Specifies the classification (e.g., 'warehouse transfer', 'purchase order', 'sales order', 'return'). Users might call this "shipment class" too.
+
 Pay close attention to the column names and types. Quote column names if they contain spaces or are keywords.
-Column "order_type" specifies if an order is 'Inbound' or 'Outbound'. Use LOWER() for case-insensitive comparisons.
-Column "order_class" specifies the type of order (e.g., 'warehouse transfer', 'purchase order', 'sales order', 'return').
+Use LOWER() for case-insensitive string comparisons.
 
 # EXAMPLES
-# Example 1: Total count of all inbound and outbound orders across all customers
-Question: How many inbounds and outbounds?
+# Example 1: Total count using "orders" terminology
+Question: How many inbound and outbound orders are there?
 SQLQuery: SELECT "order_type", COUNT(*) as count FROM data_orders GROUP BY "order_type" ORDER BY "order_type"
 
-# Example 2: Total count of inbound and outbound orders for a specific customer
-Question: How many inbound and outbound orders does Abbott Nutrition have?
-SQLQuery: SELECT "order_type", COUNT(*) as count FROM data_orders WHERE customer = 'Abbott Nutrition' GROUP BY "order_type"
+# Example 2: Same query but using "shipments" terminology
+Question: Can you break down all shipments by shipment type?
+SQLQuery: SELECT "order_type", COUNT(*) as count FROM data_orders GROUP BY "order_type" ORDER BY "order_type"
 
-# Example 3: Distribution of order classes for outbound orders
-Question: What are the different order classes for outbound orders?
+# Example 3: Distribution by class showing both terminologies
+Question: What are the different shipment classes for outbound orders?
 SQLQuery: SELECT "order_class", COUNT(*) as count FROM data_orders WHERE LOWER("order_type") = 'outbound' GROUP BY "order_class" ORDER BY count DESC
 
 Question: {input}
