@@ -32,4 +32,4 @@ async def handle_chat_message(
         message=request.message,  # Updated to match new field name
         user_id=request.user_id   # Updated to match new field name
     )
-    return ChatResponse(anser=response_text, user_id=request.user_id, json_data=json_data) # Updated to match new field name
+    return ChatResponse(answer=response_text, user_id=request.user_id, json_data=json_data) # Updated to match new field name

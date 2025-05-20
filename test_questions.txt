@@ -20,9 +20,9 @@
 
  How many orders by customer?
 
-Tell me about order "ABBOTT_8"
-Tell me about shipment AGW4525801016
-Tell me about shipment "AGW4525801016"
+Tell me about order "CTF12292020-03"
+Tell me about shipment 9012020.2.1
+Tell me about shipment "ACI-HLBU9518968"
 
 # FAILING
 # What customers name starts with letter A?
