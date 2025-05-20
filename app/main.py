@@ -22,10 +22,9 @@ app = FastAPI(
 
 # CORS Middleware configuration
 origins = [
-    "https://dashboard-control-front.onrender.com", # Your frontend app
-    # You can add other origins if needed, e.g., for local development
-    # "http://localhost:3000", 
-    # "http://localhost:8080", # If you run a local frontend for this service
+    "https://dashboard-control-front.onrender.com", # Production frontend
+    "http://localhost:5173", # Local development frontend
+    # Add others if needed
 ]
 
 app.add_middleware(
