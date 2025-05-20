@@ -1,9 +1,14 @@
 import jwt
 import time
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env
+load_dotenv()
 
 # Use the same secret and algorithm as in your .env file
-SECRET_KEY = "-4n-21b4lk%kqol1grj-=@rvm)$r$c5uobgyh^_!5vn5fedy1h # Generate a strong key!"
-ALGORITHM = "HS256"
+SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+ALGORITHM = os.getenv("ALGORITHM", "HS256")
 
 # Set expiration to 24 hours from now
 exp = int(time.time()) + 24 * 3600
