@@ -25,5 +25,5 @@ Tell me about shipment 9012020.2.1
 Tell me about shipment "ACI-HLBU9518968"
 
 # FAILING
-# What customers name starts with letter A?
-# List all customers that starts with letter A
+What customers name starts with letter A?
+List all customers that starts with letter A

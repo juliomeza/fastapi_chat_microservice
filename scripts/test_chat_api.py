@@ -1,10 +1,16 @@
 import requests
 import os
 import sys
+import argparse
 from dotenv import load_dotenv
 
-# Determine environment (dev or prod) from command line argument
-ENV = sys.argv[1] if len(sys.argv) > 1 else "dev"
+# Argument parser for --show-all
+parser = argparse.ArgumentParser(description="Test chat API and summarize results.")
+parser.add_argument('env', nargs='?', default='dev', help='Environment: dev or prod')
+parser.add_argument('--show-all', action='store_true', help='Show all questions and responses, not just failures')
+args = parser.parse_args()
+
+ENV = args.env
 if ENV == "prod":
     API_URL = "https://fastapi-chat-microservice.onrender.com/api/v1/chat/"
 else:
@@ -28,15 +34,48 @@ headers = {
     "Content-Type": "application/json"
 }
 
+results = []
+total = len(questions)
+
 for idx, question in enumerate(questions, 1):
     payload = {
         "message": question,  # Changed from 'mensaje' to 'message'
         "user_id": USER_ID    # Changed from 'usuario_id' to 'user_id'
     }
     response = requests.post(API_URL, json=payload, headers=headers)
-    print(f"\nQuestion {idx}: {question}")
-    print(f"Status: {response.status_code}")
     try:
-        print("Response:", response.json())
+        resp_json = response.json()
     except Exception:
-        print("Response is not JSON:", response.text)
+        resp_json = {"answer": "Response is not JSON", "json_data": None}
+    failed = resp_json.get('json_data') is None
+    results.append({
+        'idx': idx,
+        'question': question,
+        'status': response.status_code,
+        'response': resp_json,
+        'failed': failed
+    })
+    # Show progress and result immediately
+    print(f"Question {idx}/{total}: {question}")
+    print(f"Result: {'FAIL' if failed else 'PASS'}\n")
+
+# Print summary
+passed = sum(1 for r in results if not r['failed'])
+total = len(results)
+print(f"\nPassed: {passed}/{total}")
+
+if any(r['failed'] for r in results):
+    print("\nFailed questions:")
+    for r in results:
+        if r['failed']:
+            print(f"\nQuestion {r['idx']}: {r['question']}")
+            print(f"Status: {r['status']}")
+            print(f"Response: {r['response']}")
+
+if args.show_all:
+    print("\nAll questions and responses:")
+    for r in results:
+        print(f"\nQuestion {r['idx']}: {r['question']}")
+        print(f"Status: {r['status']}")
+        print(f"Response: {r['response']}")
+        print(f"Result: {'FAIL' if r['failed'] else 'PASS'}")
