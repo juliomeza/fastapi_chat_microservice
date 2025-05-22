@@ -43,6 +43,7 @@ Important notes about terminology:
 1. The words "order" and "shipment" are used interchangeably by users. They refer to the same concepts.
 2. If someone asks about "orders" or "shipments", they're referring to the "data_orders" table.
 3. Users may refer to specific types of orders using business terms such as "sales order", "purchase order", "return", "warehouse transfer", or "material transfer". These terms correspond to values in the column "order_class" (not "order_type"). If a user asks about any of these types (e.g., "sales orders"), generate a SQL query that filters using WHERE "order_class" ILIKE '%Sales Order%' (or the appropriate pattern for the term used). Do not use the "order_type" column for these cases. In your natural language answer, explicitly mention which order_class values are included by the filter, and let the user know they can request to exclude any specific type if needed.
+4. When a user asks to "list", "show", or "what are the" distinct values of a textual or categorical column (e.g., customer names, product categories, warehouse locations), use `SELECT DISTINCT column_name FROM table_name`. If the question implies counting or aggregation (e.g., "how many orders per customer"), then `GROUP BY` is appropriate instead of `DISTINCT` on the primary selected column. Always consider adding an `ORDER BY` clause for consistent results when using `DISTINCT`.
 
 Column definitions:
 - "order_type": Specifies if it's 'Inbound' or 'Outbound'. Users might refer to this as "shipment type" as well.
@@ -88,6 +89,14 @@ SQLQuery: SELECT "order_class", "month", COUNT(*) as sales_order_count FROM data
 # Example 9: All sales orders per date (always include order_class in the SELECT clause when filtering by order_class)
 Question: How many sales orders per date?
 SQLQuery: SELECT "order_class", "date", COUNT(*) as sales_order_count FROM data_orders WHERE "order_class" ILIKE '%Sales Order%' GROUP BY "order_class", "date" ORDER BY "date"
+
+# Example 10: Listing unique customer names with a filter
+Question: What customers' names start with the letter A?
+SQLQuery: SELECT DISTINCT "customer" FROM data_orders WHERE "customer" ILIKE 'a%' ORDER BY "customer"
+
+# Example 11: Counting specific order_class for customers matching a name pattern
+Question: How many sales orders for customers whose names start with B?
+SQLQuery: SELECT "customer", "order_class", COUNT(*) as count FROM data_orders WHERE "customer" ILIKE 'b%' AND "order_class" ILIKE '%Sales Order%' GROUP BY "customer", "order_class" ORDER BY "customer", "order_class"
 
 Question: {input}
 SQLQuery:

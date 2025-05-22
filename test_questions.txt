@@ -1,6 +1,6 @@
 # WORKING
 
-## Basic Questions
+# # Basic Questions
 # how many orders
 # how many outbound orders
 # How many inbound orders?
@@ -22,12 +22,12 @@
 # How many orders by customer?
 # how many orders by date
 
-## Questions about specific orders
+# # Questions about specific orders
 # Tell me about order "CTF12292020-03"
 # Tell me about shipment 9012020.2.1
 # Tell me about shipment "ACI-HLBU9518968"
 
-## Questions about days weeks months and years
+# # Questions about days weeks months and years
 # How many orders per day
 # How many orders per day for January 2024
 # How many shipments per week
@@ -44,17 +44,20 @@
 # Show me the inbound and outbound orders by month for 2024
 # How many inbounds and outbounds per month in 2024
 
-# Questions by Order Class
+# # Questions by Order Class
 # How many sales orders
 # How many sales orders per day
 # How many sales orders per week
 # How many sales orders per month
 # How many sales orders per quarter
 # How many sales orders per year
-How many purchase orders per week
-How many return orders per week
-How many hazardous orders per week
-how many sales orders per date
+# How many purchase orders per week
+# How many return orders per week
+# How many hazardous orders per week
+# how many sales orders per date
+
+## Customers
+
 
 # FAILING
 #What customers name starts with letter A?
