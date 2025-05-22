@@ -27,21 +27,24 @@
 # Tell me about shipment "ACI-HLBU9518968"
 
 ## Questions about days weeks months and years
-How many orders per day
-How many orders per day for January 2024
-How many shipments per week
-How many orders per week for 2025
-how many orders per week by year
-How many inbounds for may 2024
-How many inbounds for may 2024 by day
-How many inbounds for may 2024 by week
-How many inbounds for January 2024 and 2025
-How many inbounds for January 2024 and 2025 by day
-Show me the inbound and outbound orders by month
-Show me the inbound/outbound orders by month
-How many inbounds and outbounds per month
-Show me the inbound and outbound orders by month for 2024
-How many inbounds and outbounds per month in 2024
+# How many orders per day
+# How many orders per day for January 2024
+# How many shipments per week
+# How many orders per week for 2025
+# how many orders per week by year
+# How many inbounds for may 2024
+# How many inbounds for may 2024 by day
+# How many inbounds for may 2024 by week
+# How many inbounds for January 2024 and 2025
+# How many inbounds for January 2024 and 2025 by day
+# Show me the inbound and outbound orders by month
+# Show me the inbound/outbound orders by month
+# How many inbounds and outbounds per month
+# Show me the inbound and outbound orders by month for 2024
+# How many inbounds and outbounds per month in 2024
+
+# Questions by Order Class
+How many sales orders
 
 # FAILING
 #What customers name starts with letter A?

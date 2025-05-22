@@ -38,6 +38,7 @@ Only use the following table (schema details might be limited by {top_k} if appl
 Important notes about terminology:
 1. The words "order" and "shipment" are used interchangeably by users. They refer to the same concepts.
 2. If someone asks about "orders" or "shipments", they're referring to the "data_orders" table.
+3. Users may refer to specific types of orders using business terms such as "sales order", "purchase order", "return", "warehouse transfer", or "material transfer". These terms correspond to values in the column "order_class" (not "order_type"). If a user asks about any of these types (e.g., "sales orders"), generate a SQL query that filters using WHERE "order_class" ILIKE '%Sales Order%' (or the appropriate pattern for the term used). Do not use the "order_type" column for these cases. In your natural language answer, explicitly mention which order_class values are included by the filter, and let the user know they can request to exclude any specific type if needed.
 
 Column definitions:
 - "order_type": Specifies if it's 'Inbound' or 'Outbound'. Users might refer to this as "shipment type" as well.
@@ -71,6 +72,10 @@ SQLQuery: SELECT "week", COUNT(*) as count FROM data_orders WHERE "year" = 2025 
 # Example 6: Inbounds for January 2024 and 2025 (should not sum both years together)
 Question: How many inbounds for January 2024 and 2025?
 SQLQuery: SELECT "year", "month", COUNT(*) as inbound_count FROM data_orders WHERE LOWER("order_type") = 'inbound' AND "month" = 1 AND ("year" = 2024 OR "year" = 2025) GROUP BY "year", "month" ORDER BY "year"
+
+# Example 7: All sales orders in 2024 (this pattern applies to other business terms like purchase orders, returns, warehouse transfers, material transfers, etc.)
+Question: How many sales orders were processed in 2024?
+SQLQuery: SELECT COUNT(*) FROM data_orders WHERE "order_class" ILIKE '%Sales Order%' AND "year" = 2024
 
 Question: {input}
 SQLQuery:
