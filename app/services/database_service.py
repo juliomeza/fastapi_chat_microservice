@@ -12,6 +12,10 @@ from app.core.config import settings
 from decimal import Decimal
 import datetime # Import datetime
 
+# Max rows and characters for LLM prompt
+MAX_ROWS_FOR_LLM_PROMPT = 50  # Example: Limit to 50 rows
+MAX_CHARS_FOR_LLM_PROMPT = 8000 # Example: Limit to 8000 characters (approx 2k tokens)
+
 # Assuming engine is available for sync usage if needed, but we primarily use async session
 # For LangChain\'s SQLDatabase utility, a synchronous SQLAlchemy engine is typically used.
 sync_db_url = settings.DATABASE_URL.replace("postgresql+asyncpg", "postgresql")
@@ -43,7 +47,7 @@ Important notes about terminology:
 Column definitions:
 - "order_type": Specifies if it's 'Inbound' or 'Outbound'. Users might refer to this as "shipment type" as well.
 - "order_class": Specifies the classification (e.g., 'warehouse transfer', 'purchase order', 'sales order', 'return'). Users might call this "shipment class" too.
-- "year", "month", "quarter", "week", "day": These columns represent the year, month, quarter, week, and day of the order or shipment. Use them for time-based grouping or filtering. For example, to filter for a specific year, use WHERE "year" = 2024. To group by month, use GROUP BY "month".
+- "date", "year", "month", "quarter", "week", "day": These columns represent the specific date, as well as the year, month, quarter, week, and day components of the order or shipment. Use them for time-based grouping or filtering. For example, to filter for a specific year, use WHERE "year" = 2024. To group by month, use GROUP BY "month". To group by a specific date, use GROUP BY "date".
 
 Pay close attention to the column names and types. Quote column names if they contain spaces or are keywords.
 Use LOWER() for case-insensitive string comparisons.
@@ -81,6 +85,10 @@ SQLQuery: SELECT "order_class", COUNT(*) as sales_order_count FROM data_orders W
 Question: How many sales orders per month?
 SQLQuery: SELECT "order_class", "month", COUNT(*) as sales_order_count FROM data_orders WHERE "order_class" ILIKE '%Sales Order%' GROUP BY "order_class", "month" ORDER BY "month"
 
+# Example 9: All sales orders per date (always include order_class in the SELECT clause when filtering by order_class)
+Question: How many sales orders per date?
+SQLQuery: SELECT "order_class", "date", COUNT(*) as sales_order_count FROM data_orders WHERE "order_class" ILIKE '%Sales Order%' GROUP BY "order_class", "date" ORDER BY "date"
+
 Question: {input}
 SQLQuery:
 """
@@ -96,7 +104,8 @@ generate_query_chain = create_sql_query_chain(llm, db_langchain, prompt=custom_s
 async def execute_sql_query(db_session: AsyncSession, query: str) -> Tuple[str, Optional[Any]]:
     """
     Executes a given SQL query using the async session.
-    Returns the result as a string (for LLM consumption) and structured JSON data (list of dicts).
+    Returns the result as a string (for LLM consumption, possibly truncated) 
+    and structured JSON data (list of dicts).
     """
     try:
         result = await db_session.execute(text(query))
@@ -118,12 +127,24 @@ async def execute_sql_query(db_session: AsyncSession, query: str) -> Tuple[str, 
         if not json_results:
             return "No results found.", [] # Return empty list for json_data
 
-        # For the LLM, a string representation might be more useful if it's too long.
-        # Let's provide a compact string version.
-        # If results are extensive, consider summarizing or truncating raw_results_str.
-        raw_results_str = json.dumps(json_results) # Compact JSON for LLM
+        # Prepare results for LLM, with truncation if necessary
+        results_for_llm = json_results
+        is_truncated = False
+
+        if len(results_for_llm) > MAX_ROWS_FOR_LLM_PROMPT:
+            results_for_llm = results_for_llm[:MAX_ROWS_FOR_LLM_PROMPT]
+            is_truncated = True
         
-        return raw_results_str, json_results
+        raw_results_str = json.dumps(results_for_llm)
+
+        if len(raw_results_str) > MAX_CHARS_FOR_LLM_PROMPT:
+            raw_results_str = raw_results_str[:MAX_CHARS_FOR_LLM_PROMPT] + "..."
+            is_truncated = True
+        
+        if is_truncated:
+            raw_results_str += " (Note: Results were truncated due to size)"
+            
+        return raw_results_str, json_results # Return full json_results for potential other uses
     except Exception as e:
         # Log the error for debugging on the server
         print(f"Error executing SQL query: {query}. Error: {e}")
@@ -176,6 +197,7 @@ async def get_answer_from_table_via_langchain(db_session: AsyncSession, question
         answer_generation_prompt_text = f"""
         Based on the user's question and the following SQL query and its result, provide a concise natural language answer.
         If the query result is empty or does not seem to directly answer the question, state that the requested information could not be found in the '{table_name}' table or that we are still in development for other data sources.
+        If the SQLResult indicates that it was truncated, mention that the provided data is a subset of the full results due to its size.
 
         User Question: "{question}"
         SQLQuery Executed: "{sql_query}"
