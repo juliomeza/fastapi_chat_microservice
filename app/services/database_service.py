@@ -73,9 +73,13 @@ SQLQuery: SELECT "week", COUNT(*) as count FROM data_orders WHERE "year" = 2025 
 Question: How many inbounds for January 2024 and 2025?
 SQLQuery: SELECT "year", "month", COUNT(*) as inbound_count FROM data_orders WHERE LOWER("order_type") = 'inbound' AND "month" = 1 AND ("year" = 2024 OR "year" = 2025) GROUP BY "year", "month" ORDER BY "year"
 
-# Example 7: All sales orders in 2024 (this pattern applies to other business terms like purchase orders, returns, warehouse transfers, material transfers, etc.)
-Question: How many sales orders were processed in 2024?
-SQLQuery: SELECT COUNT(*) FROM data_orders WHERE "order_class" ILIKE '%Sales Order%' AND "year" = 2024
+# Example 7: All sales orders (always include order_class in the SELECT clause when filtering by order_class)
+Question: How many sales orders?
+SQLQuery: SELECT "order_class", COUNT(*) as sales_order_count FROM data_orders WHERE "order_class" ILIKE '%Sales Order%' GROUP BY "order_class"
+
+# Example 8: All sales orders per month (this pattern also applies to week, day, year, etc.; always include order_class in the SELECT clause)
+Question: How many sales orders per month?
+SQLQuery: SELECT "order_class", "month", COUNT(*) as sales_order_count FROM data_orders WHERE "order_class" ILIKE '%Sales Order%' GROUP BY "order_class", "month" ORDER BY "month"
 
 Question: {input}
 SQLQuery:

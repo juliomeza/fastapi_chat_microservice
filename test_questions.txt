@@ -20,6 +20,7 @@
 # How many orders I have by year and inbound or outbound?
 # Could you break down the orders by year, inbound/outbound and order class please?
 # How many orders by customer?
+# how many orders by date
 
 ## Questions about specific orders
 # Tell me about order "CTF12292020-03"
@@ -44,7 +45,16 @@
 # How many inbounds and outbounds per month in 2024
 
 # Questions by Order Class
-How many sales orders
+# How many sales orders
+# How many sales orders per day
+# How many sales orders per week
+# How many sales orders per month
+# How many sales orders per quarter
+# How many sales orders per year
+How many purchase orders per week
+How many return orders per week
+How many hazardous orders per week
+how many sales orders per date
 
 # FAILING
 #What customers name starts with letter A?
