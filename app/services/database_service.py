@@ -68,6 +68,10 @@ SQLQuery: SELECT "order_type", "month", COUNT(*) as count FROM data_orders WHERE
 Question: How many orders per week for 2025?
 SQLQuery: SELECT "week", COUNT(*) as count FROM data_orders WHERE "year" = 2025 GROUP BY "week" ORDER BY "week"
 
+# Example 6: Inbounds for January 2024 and 2025 (should not sum both years together)
+Question: How many inbounds for January 2024 and 2025?
+SQLQuery: SELECT "year", "month", COUNT(*) as inbound_count FROM data_orders WHERE LOWER("order_type") = 'inbound' AND "month" = 1 AND ("year" = 2024 OR "year" = 2025) GROUP BY "year", "month" ORDER BY "year"
+
 Question: {input}
 SQLQuery:
 """
