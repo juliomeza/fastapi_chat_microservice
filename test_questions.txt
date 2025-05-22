@@ -43,6 +43,7 @@
 # How many inbounds and outbounds per month
 # Show me the inbound and outbound orders by month for 2024
 # How many inbounds and outbounds per month in 2024
+# How many orders per month
 
 # # Questions by Order Class
 # How many sales orders

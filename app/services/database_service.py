@@ -98,6 +98,10 @@ SQLQuery: SELECT DISTINCT "customer" FROM data_orders WHERE "customer" ILIKE 'a%
 Question: How many sales orders for customers whose names start with B?
 SQLQuery: SELECT "customer", "order_class", COUNT(*) as count FROM data_orders WHERE "customer" ILIKE 'b%' AND "order_class" ILIKE '%Sales Order%' GROUP BY "customer", "order_class" ORDER BY "customer", "order_class"
 
+# Example 12: Count orders per month (display month name, sort chronologically by month number)
+Question: How many orders per month?
+SQLQuery: SELECT "month_name", COUNT(*) as order_count FROM data_orders GROUP BY "month_name", "month" ORDER BY "month"
+
 Question: {input}
 SQLQuery:
 """
