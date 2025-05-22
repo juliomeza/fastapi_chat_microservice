@@ -42,6 +42,7 @@ Important notes about terminology:
 Column definitions:
 - "order_type": Specifies if it's 'Inbound' or 'Outbound'. Users might refer to this as "shipment type" as well.
 - "order_class": Specifies the classification (e.g., 'warehouse transfer', 'purchase order', 'sales order', 'return'). Users might call this "shipment class" too.
+- "year", "month", "quarter", "week", "day": These columns represent the year, month, quarter, week, and day of the order or shipment. Use them for time-based grouping or filtering. For example, to filter for a specific year, use WHERE "year" = 2024. To group by month, use GROUP BY "month".
 
 Pay close attention to the column names and types. Quote column names if they contain spaces or are keywords.
 Use LOWER() for case-insensitive string comparisons.
@@ -58,6 +59,14 @@ SQLQuery: SELECT "order_type", COUNT(*) as count FROM data_orders GROUP BY "orde
 # Example 3: Distribution by class showing both terminologies
 Question: What are the different shipment classes for outbound orders?
 SQLQuery: SELECT "order_class", COUNT(*) as count FROM data_orders WHERE LOWER("order_type") = 'outbound' GROUP BY "order_class" ORDER BY count DESC
+
+# Example 4: Grouping by month and filtering by year
+Question: How many inbounds and outbounds per month in 2024?
+SQLQuery: SELECT "order_type", "month", COUNT(*) as count FROM data_orders WHERE "year" = 2024 GROUP BY "order_type", "month" ORDER BY "order_type", "month"
+
+# Example 5: Grouping by week and filtering by year (no breakdown by order_type)
+Question: How many orders per week for 2025?
+SQLQuery: SELECT "week", COUNT(*) as count FROM data_orders WHERE "year" = 2025 GROUP BY "week" ORDER BY "week"
 
 Question: {input}
 SQLQuery:

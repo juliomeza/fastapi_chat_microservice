@@ -1,29 +1,42 @@
 # WORKING
- how many orders
- how many outbound orders
- How many inbound orders?
- How many inbounds and outbounds?
- How many orders are there by warehouse?
- How many inbounds by warehouse?
- How many outbounds by warehouse?
- Could you break down the outbound orders by warehouse and class?
- Could you break down the orders by inbound/outbound?
- Please break down the orders by class
- Please break down the orders by order class
- Please break down the orders by shipment class
- Please break down the orders by type
- Could you break down orders by warehouse and order type?
- How many outbound orders by order type?
- How many orders I have in 2024?
- How many orders I have by year and inbound or outbound?
- Could you break down the orders by year, inbound/outbound and order class please?
 
- How many orders by customer?
+## Basic Questions
+# how many orders
+# how many outbound orders
+# How many inbound orders?
+# How many inbounds and outbounds?
+# How many orders are there by warehouse?
+# How many inbounds by warehouse?
+# How many outbounds by warehouse?
+# Could you break down the outbound orders by warehouse and class?
+# Could you break down the orders by inbound/outbound?
+# Please break down the orders by class
+# Please break down the orders by order class
+# Please break down the orders by shipment class
+# Please break down the orders by type
+# Could you break down orders by warehouse and order type?
+# How many outbound orders by order type?
+# How many orders I have in 2024?
+# How many orders I have by year and inbound or outbound?
+# Could you break down the orders by year, inbound/outbound and order class please?
+# How many orders by customer?
 
-Tell me about order "CTF12292020-03"
-Tell me about shipment 9012020.2.1
-Tell me about shipment "ACI-HLBU9518968"
+## Questions about specific orders
+# Tell me about order "CTF12292020-03"
+# Tell me about shipment 9012020.2.1
+# Tell me about shipment "ACI-HLBU9518968"
+
+## Questions about days weeks months and years
+How many orders per day
+How many shipments per week
+How many orders per week for 2025
+How many inbounds for may 2024
+How many inbounds for January 2024 and 2025
+Show me the inbound and outbound orders by month
+Show me the inbound and outbound orders by month for 2024
+How many inbounds and outbounds per month
+How many inbounds and outbounds per month in 2024
 
 # FAILING
-What customers name starts with letter A?
-List all customers that starts with letter A
+#What customers name starts with letter A?
+#List all customers that starts with letter A
