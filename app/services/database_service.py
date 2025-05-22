@@ -48,7 +48,7 @@ Important notes about terminology:
 Column definitions:
 - "order_type": Specifies if it's 'Inbound' or 'Outbound'. Users might refer to this as "shipment type" as well.
 - "order_class": Specifies the classification (e.g., 'warehouse transfer', 'purchase order', 'sales order', 'return'). Users might call this "shipment class" too.
-- "date", "year", "month", "quarter", "week", "day": These columns represent the specific date, as well as the year, month, quarter, week, and day components of the order or shipment. Use them for time-based grouping or filtering. For example, to filter for a specific year, use WHERE "year" = 2024. To group by month, use GROUP BY "month". To group by a specific date, use GROUP BY "date".
+- "date", "year", "month", "month_name", "quarter", "week", "day": These columns represent the specific date and its components. "month" is the month number (1-12) and "month_name" is the textual representation (e.g., 'January', 'February'). Use these for time-based grouping or filtering. For example, to filter for a specific year, use WHERE "year" = 2024. When displaying monthly data using "month_name", ensure results are sorted chronologically by the numeric "month". To do this, include both "month_name" and "month" in the GROUP BY clause, and then ORDER BY "month". You should select "month_name" for display. If the question implies only showing the month name, you do not need to select the "month" column itself, but it must be in the GROUP BY clause for correct ordering. For example: `SELECT "month_name", COUNT(*) ... GROUP BY "month_name", "month" ORDER BY "month"`. If detailed month and year context is needed in the output, you can select "month" as well: `SELECT "month_name", "month", ... GROUP BY "month_name", "month" ORDER BY "month"`. To group by a specific date, use GROUP BY "date".
 
 Pay close attention to the column names and types. Quote column names if they contain spaces or are keywords.
 Use LOWER() for case-insensitive string comparisons.
@@ -66,25 +66,25 @@ SQLQuery: SELECT "order_type", COUNT(*) as count FROM data_orders GROUP BY "orde
 Question: What are the different shipment classes for outbound orders?
 SQLQuery: SELECT "order_class", COUNT(*) as count FROM data_orders WHERE LOWER("order_type") = 'outbound' GROUP BY "order_class" ORDER BY count DESC
 
-# Example 4: Grouping by month and filtering by year
+# Example 4: Grouping by month and filtering by year (display month name, sort chronologically)
 Question: How many inbounds and outbounds per month in 2024?
-SQLQuery: SELECT "order_type", "month", COUNT(*) as count FROM data_orders WHERE "year" = 2024 GROUP BY "order_type", "month" ORDER BY "order_type", "month"
+SQLQuery: SELECT "order_type", "month_name", COUNT(*) as count FROM data_orders WHERE "year" = 2024 GROUP BY "order_type", "month_name", "month" ORDER BY "order_type", "month"
 
 # Example 5: Grouping by week and filtering by year (no breakdown by order_type)
 Question: How many orders per week for 2025?
 SQLQuery: SELECT "week", COUNT(*) as count FROM data_orders WHERE "year" = 2025 GROUP BY "week" ORDER BY "week"
 
-# Example 6: Inbounds for January 2024 and 2025 (should not sum both years together)
+# Example 6: Inbounds for January 2024 and 2025 (display month name, sort chronologically)
 Question: How many inbounds for January 2024 and 2025?
-SQLQuery: SELECT "year", "month", COUNT(*) as inbound_count FROM data_orders WHERE LOWER("order_type") = 'inbound' AND "month" = 1 AND ("year" = 2024 OR "year" = 2025) GROUP BY "year", "month" ORDER BY "year"
+SQLQuery: SELECT "year", "month_name", COUNT(*) as inbound_count FROM data_orders WHERE LOWER("order_type") = 'inbound' AND "month" = 1 AND ("year" = 2024 OR "year" = 2025) GROUP BY "year", "month_name", "month" ORDER BY "year", "month"
 
 # Example 7: All sales orders (always include order_class in the SELECT clause when filtering by order_class)
 Question: How many sales orders?
 SQLQuery: SELECT "order_class", COUNT(*) as sales_order_count FROM data_orders WHERE "order_class" ILIKE '%Sales Order%' GROUP BY "order_class"
 
-# Example 8: All sales orders per month (this pattern also applies to week, day, year, etc.; always include order_class in the SELECT clause)
+# Example 8: All sales orders per month (display month name, sort chronologically)
 Question: How many sales orders per month?
-SQLQuery: SELECT "order_class", "month", COUNT(*) as sales_order_count FROM data_orders WHERE "order_class" ILIKE '%Sales Order%' GROUP BY "order_class", "month" ORDER BY "month"
+SQLQuery: SELECT "order_class", "month_name", COUNT(*) as sales_order_count FROM data_orders WHERE "order_class" ILIKE '%Sales Order%' GROUP BY "order_class", "month_name", "month" ORDER BY "order_class", "month"
 
 # Example 9: All sales orders per date (always include order_class in the SELECT clause when filtering by order_class)
 Question: How many sales orders per date?

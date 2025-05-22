@@ -57,8 +57,9 @@
 # how many sales orders per date
 
 ## Customers
-
+# How many sales orders for customers whose names start with B?
+# What customers name starts with letter A?
+# List all customers that starts with letter A
 
 # FAILING
-#What customers name starts with letter A?
-#List all customers that starts with letter A
+
